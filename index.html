@@ -55,7 +55,17 @@ a{color:var(--accent)}
 </head>
 <body>
 <h1>Image Embedding Lab</h1>
-<p class="sub">Are image embeddings invariant to rotation, cropping, and scaling? Upload an image and find out. CLIP's vision encoder runs entirely in your browser — no server, no API key.</p>
+<p class="sub">Are image embeddings invariant to rotation, cropping, and scaling? Upload an image and find out. Vision encoders run entirely in your browser — no server, no API key. Model blobs are cached via service worker after first download.</p>
+
+<div class="controls" style="margin-bottom:1rem">
+  <div class="control-group">
+    <label>Encoder model</label>
+    <select id="model-select">
+      <option value="Xenova/clip-vit-base-patch32">CLIP ViT-Base (OpenAI, ~100MB)</option>
+      <option value="Xenova/siglip-base-patch16-224">SigLIP Base (Google, ~370MB)</option>
+    </select>
+  </div>
+</div>
 
 <div class="dropzone" id="dropzone">
   <p>Drop an image here, or click to choose</p>
@@ -114,7 +124,7 @@ a{color:var(--accent)}
   <p class="legend" id="legend"></p>
 </div>
 
-<p class="note">Powered by <a href="https://huggingface.co/Xenova/clip-vit-base-patch32" target="_blank">CLIP ViT-Base</a> via <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js</a> (WebGPU/WASM). Model loads on first use (~100MB). All computation happens locally in your browser. <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
+<p class="note">Powered by <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js</a> (WebGPU/WASM). Models: <a href="https://huggingface.co/Xenova/clip-vit-base-patch32" target="_blank">CLIP</a> (OpenAI) and <a href="https://huggingface.co/Xenova/siglip-base-patch16-224" target="_blank">SigLIP</a> (Google). All computation happens locally. Model files cached via service worker. <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
 
 <script type="module">
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
@@ -122,7 +132,8 @@ import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transfo
 env.allowLocalModels = false;
 
 let extractor = null;
-let sourceImage = null; // ImageBitmap or HTMLImageElement
+let currentModel = null;
+let sourceImage = null;
 let originalEmbedding = null;
 
 const $ = (id) => document.getElementById(id);
@@ -144,10 +155,15 @@ function setProgress(pct) {
 
 // --- Model loading ---
 async function loadModel() {
-  if (extractor) return extractor;
-  setStatus('Loading CLIP vision encoder (~100MB, one-time download)…', 'loading');
+  const modelId = $('model-select').value;
+  if (extractor && currentModel === modelId) return extractor;
+  extractor = null;
+  currentModel = modelId;
+  originalEmbedding = null;
+  const label = modelId.includes('clip') ? 'CLIP' : 'SigLIP';
+  setStatus(`Loading ${label} vision encoder (cached after first download)…`, 'loading');
   setProgress(0);
-  extractor = await pipeline('image-feature-extraction', 'Xenova/clip-vit-base-patch32', {
+  extractor = await pipeline('image-feature-extraction', modelId, {
     progress_callback: (data) => {
       if (data.status === 'progress' && data.total) {
         setProgress(Math.round(data.loaded / data.total * 100));
@@ -347,6 +363,18 @@ function renderResults(results) {
   const rotAvgPct = rotAvg.length ? Math.round(rotAvg.reduce((a,b)=>a+b,0)/rotAvg.length * 100) : '—';
   const cropAvgPct = cropAvg.length ? Math.round(cropAvg.reduce((a,b)=>a+b,0)/cropAvg.length * 100) : '—';
   $('legend').innerHTML = `<strong>Summary:</strong> Average rotation similarity: ${rotAvgPct}% · Average crop similarity: ${cropAvgPct}% · Horizontal flip: ${flipH != null ? Math.round(flipH * 100) + '%' : '—'}.<br>High similarity (green) means the encoder is invariant to that transform. Low similarity (red) means it's sensitive — the embedding changes significantly.`;
+}
+// invalidate cache when model changes
+$('model-select').addEventListener('change', () => {
+  extractor = null;
+  originalEmbedding = null;
+  $('results').innerHTML = '';
+  $('legend').innerHTML = '';
+});
+
+// register service worker for model caching
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 </script>
 </body>
