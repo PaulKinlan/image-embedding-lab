@@ -1,87 +1,6 @@
 [
   {
-    "file": "test-images/abstract.jpg",
-    "model": "clip",
-    "results": [
-      {
-        "name": "Identity",
-        "similarity": 1,
-        "pct": 100
-      },
-      {
-        "name": "Rotate 90°",
-        "similarity": 0.8625677384718475,
-        "pct": 86
-      },
-      {
-        "name": "Rotate 180°",
-        "similarity": 0.830760341160667,
-        "pct": 83
-      },
-      {
-        "name": "Rotate 270°",
-        "similarity": 0.887531204531732,
-        "pct": 89
-      },
-      {
-        "name": "Rotate 15°",
-        "similarity": 0.9091077074735975,
-        "pct": 91
-      },
-      {
-        "name": "Rotate 45°",
-        "similarity": 0.6069672051051629,
-        "pct": 61
-      },
-      {
-        "name": "Crop 10%",
-        "similarity": 0.949365866429225,
-        "pct": 95
-      },
-      {
-        "name": "Crop 20%",
-        "similarity": 0.9005491629743133,
-        "pct": 90
-      },
-      {
-        "name": "Crop 35%",
-        "similarity": 0.8073333975474984,
-        "pct": 81
-      },
-      {
-        "name": "Scale 80%",
-        "similarity": 0.8707997849752295,
-        "pct": 87
-      },
-      {
-        "name": "Scale 120%",
-        "similarity": 0.9289631660612786,
-        "pct": 93
-      },
-      {
-        "name": "Scale 150%",
-        "similarity": 0.9165877541162112,
-        "pct": 92
-      },
-      {
-        "name": "Flip H",
-        "similarity": 0.9837490318510269,
-        "pct": 98
-      },
-      {
-        "name": "Flip V",
-        "similarity": 0.8569845435745387,
-        "pct": 86
-      },
-      {
-        "name": "Rotate 90° + Crop 20%",
-        "similarity": 0.7292237671258064,
-        "pct": 73
-      }
-    ]
-  },
-  {
-    "file": "test-images/architecture.jpg",
+    "file": "test-images/photo-cathedral.jpg",
     "model": "clip",
     "results": [
       {
@@ -91,78 +10,726 @@
       },
       {
         "name": "Rotate 90°",
-        "similarity": 0.9187797136580733,
-        "pct": 92
+        "similarity": 0.7266217217489773,
+        "pct": 73
       },
       {
         "name": "Rotate 180°",
-        "similarity": 0.8984347012093862,
-        "pct": 90
+        "similarity": 0.7444617939924828,
+        "pct": 74
       },
       {
         "name": "Rotate 270°",
-        "similarity": 0.8975502225096028,
-        "pct": 90
+        "similarity": 0.7387565901887857,
+        "pct": 74
       },
       {
         "name": "Rotate 15°",
-        "similarity": 0.9018019549054325,
-        "pct": 90
+        "similarity": 0.8917998519609773,
+        "pct": 89
       },
       {
         "name": "Rotate 45°",
-        "similarity": 0.8739947794842361,
-        "pct": 87
+        "similarity": 0.7961995500288952,
+        "pct": 80
       },
       {
         "name": "Crop 10%",
-        "similarity": 0.9580881975909463,
-        "pct": 96
+        "similarity": 0.9738320963523214,
+        "pct": 97
       },
       {
         "name": "Crop 20%",
-        "similarity": 0.9355957762987928,
-        "pct": 94
+        "similarity": 0.9504299711239248,
+        "pct": 95
       },
       {
         "name": "Crop 35%",
-        "similarity": 0.7577687209476262,
-        "pct": 76
+        "similarity": 0.8416434877949541,
+        "pct": 84
       },
       {
         "name": "Scale 80%",
-        "similarity": 0.9229400265790855,
-        "pct": 92
+        "similarity": 0.8515254009029903,
+        "pct": 85
       },
       {
         "name": "Scale 120%",
-        "similarity": 0.9524233058676727,
-        "pct": 95
+        "similarity": 0.9580000119997077,
+        "pct": 96
       },
       {
         "name": "Scale 150%",
-        "similarity": 0.9453721536867071,
-        "pct": 95
+        "similarity": 0.9655436844577645,
+        "pct": 97
       },
       {
         "name": "Flip H",
-        "similarity": 0.9796804736350224,
-        "pct": 98
+        "similarity": 0.9930100208508327,
+        "pct": 99
       },
       {
         "name": "Flip V",
-        "similarity": 0.9072025870851388,
-        "pct": 91
+        "similarity": 0.7881820317225187,
+        "pct": 79
       },
       {
         "name": "Rotate 90° + Crop 20%",
-        "similarity": 0.873043820991272,
-        "pct": 87
+        "similarity": 0.8788261379889065,
+        "pct": 88
       }
     ]
   },
   {
-    "file": "test-images/city.jpg",
+    "file": "test-images/photo-chart.jpg",
+    "model": "clip",
+    "results": [
+      {
+        "name": "Identity",
+        "similarity": 0.9999999999999998,
+        "pct": 100
+      },
+      {
+        "name": "Rotate 90°",
+        "similarity": 0.9244271686687167,
+        "pct": 92
+      },
+      {
+        "name": "Rotate 180°",
+        "similarity": 0.9672238637909836,
+        "pct": 97
+      },
+      {
+        "name": "Rotate 270°",
+        "similarity": 0.9586394278445999,
+        "pct": 96
+      },
+      {
+        "name": "Rotate 15°",
+        "similarity": 0.9241615659176873,
+        "pct": 92
+      },
+      {
+        "name": "Rotate 45°",
+        "similarity": 0.909549042209995,
+        "pct": 91
+      },
+      {
+        "name": "Crop 10%",
+        "similarity": 0.9687165845861545,
+        "pct": 97
+      },
+      {
+        "name": "Crop 20%",
+        "similarity": 0.9348458347880199,
+        "pct": 93
+      },
+      {
+        "name": "Crop 35%",
+        "similarity": 0.7105555370896048,
+        "pct": 71
+      },
+      {
+        "name": "Scale 80%",
+        "similarity": 0.8495623201559355,
+        "pct": 85
+      },
+      {
+        "name": "Scale 120%",
+        "similarity": 0.9587354526740111,
+        "pct": 96
+      },
+      {
+        "name": "Scale 150%",
+        "similarity": 0.920879988598733,
+        "pct": 92
+      },
+      {
+        "name": "Flip H",
+        "similarity": 0.9932521101063017,
+        "pct": 99
+      },
+      {
+        "name": "Flip V",
+        "similarity": 0.9717104067611887,
+        "pct": 97
+      },
+      {
+        "name": "Rotate 90° + Crop 20%",
+        "similarity": 0.8618562868266374,
+        "pct": 86
+      }
+    ]
+  },
+  {
+    "file": "test-images/photo-diagram.jpg",
+    "model": "clip",
+    "results": [
+      {
+        "name": "Identity",
+        "similarity": 1,
+        "pct": 100
+      },
+      {
+        "name": "Rotate 90°",
+        "similarity": 0.9456221087208051,
+        "pct": 95
+      },
+      {
+        "name": "Rotate 180°",
+        "similarity": 0.9400589134554974,
+        "pct": 94
+      },
+      {
+        "name": "Rotate 270°",
+        "similarity": 0.8938333448547855,
+        "pct": 89
+      },
+      {
+        "name": "Rotate 15°",
+        "similarity": 0.8999589280055506,
+        "pct": 90
+      },
+      {
+        "name": "Rotate 45°",
+        "similarity": 0.8771345493246518,
+        "pct": 88
+      },
+      {
+        "name": "Crop 10%",
+        "similarity": 0.9234674365832976,
+        "pct": 92
+      },
+      {
+        "name": "Crop 20%",
+        "similarity": 0.8768649625479316,
+        "pct": 88
+      },
+      {
+        "name": "Crop 35%",
+        "similarity": 0.7354965991619247,
+        "pct": 74
+      },
+      {
+        "name": "Scale 80%",
+        "similarity": 0.8702450249818741,
+        "pct": 87
+      },
+      {
+        "name": "Scale 120%",
+        "similarity": 0.9214032847412136,
+        "pct": 92
+      },
+      {
+        "name": "Scale 150%",
+        "similarity": 0.9070271448879016,
+        "pct": 91
+      },
+      {
+        "name": "Flip H",
+        "similarity": 0.9828868031039717,
+        "pct": 98
+      },
+      {
+        "name": "Flip V",
+        "similarity": 0.9071421682666366,
+        "pct": 91
+      },
+      {
+        "name": "Rotate 90° + Crop 20%",
+        "similarity": 0.8941729520343386,
+        "pct": 89
+      }
+    ]
+  },
+  {
+    "file": "test-images/photo-graph.jpg",
+    "model": "clip",
+    "results": [
+      {
+        "name": "Identity",
+        "similarity": 0.9999999999999998,
+        "pct": 100
+      },
+      {
+        "name": "Rotate 90°",
+        "similarity": 0.8960206388287906,
+        "pct": 90
+      },
+      {
+        "name": "Rotate 180°",
+        "similarity": 0.92258071979509,
+        "pct": 92
+      },
+      {
+        "name": "Rotate 270°",
+        "similarity": 0.8711030339757595,
+        "pct": 87
+      },
+      {
+        "name": "Rotate 15°",
+        "similarity": 0.8806928716039198,
+        "pct": 88
+      },
+      {
+        "name": "Rotate 45°",
+        "similarity": 0.7268590249420577,
+        "pct": 73
+      },
+      {
+        "name": "Crop 10%",
+        "similarity": 0.9249379700532565,
+        "pct": 92
+      },
+      {
+        "name": "Crop 20%",
+        "similarity": 0.8632270607127426,
+        "pct": 86
+      },
+      {
+        "name": "Crop 35%",
+        "similarity": 0.7988932006251308,
+        "pct": 80
+      },
+      {
+        "name": "Scale 80%",
+        "similarity": 0.8026175150463407,
+        "pct": 80
+      },
+      {
+        "name": "Scale 120%",
+        "similarity": 0.9131475031612951,
+        "pct": 91
+      },
+      {
+        "name": "Scale 150%",
+        "similarity": 0.8920215108799004,
+        "pct": 89
+      },
+      {
+        "name": "Flip H",
+        "similarity": 0.9843959704974887,
+        "pct": 98
+      },
+      {
+        "name": "Flip V",
+        "similarity": 0.9110468096309627,
+        "pct": 91
+      },
+      {
+        "name": "Rotate 90° + Crop 20%",
+        "similarity": 0.8399355938349328,
+        "pct": 84
+      }
+    ]
+  },
+  {
+    "file": "test-images/photo-kitten.jpg",
+    "model": "clip",
+    "results": [
+      {
+        "name": "Identity",
+        "similarity": 1,
+        "pct": 100
+      },
+      {
+        "name": "Rotate 90°",
+        "similarity": 0.916194578554442,
+        "pct": 92
+      },
+      {
+        "name": "Rotate 180°",
+        "similarity": 0.864460038042509,
+        "pct": 86
+      },
+      {
+        "name": "Rotate 270°",
+        "similarity": 0.8999403915048891,
+        "pct": 90
+      },
+      {
+        "name": "Rotate 15°",
+        "similarity": 0.9281441675456154,
+        "pct": 93
+      },
+      {
+        "name": "Rotate 45°",
+        "similarity": 0.8126596601561844,
+        "pct": 81
+      },
+      {
+        "name": "Crop 10%",
+        "similarity": 0.9696705303502857,
+        "pct": 97
+      },
+      {
+        "name": "Crop 20%",
+        "similarity": 0.8915311324348262,
+        "pct": 89
+      },
+      {
+        "name": "Crop 35%",
+        "similarity": 0.8675504928797193,
+        "pct": 87
+      },
+      {
+        "name": "Scale 80%",
+        "similarity": 0.8684851969380101,
+        "pct": 87
+      },
+      {
+        "name": "Scale 120%",
+        "similarity": 0.9562517670718114,
+        "pct": 96
+      },
+      {
+        "name": "Scale 150%",
+        "similarity": 0.9200527673031124,
+        "pct": 92
+      },
+      {
+        "name": "Flip H",
+        "similarity": 0.9958221929580507,
+        "pct": 100
+      },
+      {
+        "name": "Flip V",
+        "similarity": 0.8837303001122364,
+        "pct": 88
+      },
+      {
+        "name": "Rotate 90° + Crop 20%",
+        "similarity": 0.8473294666146818,
+        "pct": 85
+      }
+    ]
+  },
+  {
+    "file": "test-images/photo-logo.jpg",
+    "model": "clip",
+    "results": [
+      {
+        "name": "Identity",
+        "similarity": 1,
+        "pct": 100
+      },
+      {
+        "name": "Rotate 90°",
+        "similarity": 0.7927121075083527,
+        "pct": 79
+      },
+      {
+        "name": "Rotate 180°",
+        "similarity": 0.825248536443363,
+        "pct": 83
+      },
+      {
+        "name": "Rotate 270°",
+        "similarity": 0.8378995057007473,
+        "pct": 84
+      },
+      {
+        "name": "Rotate 15°",
+        "similarity": 0.8160407833949058,
+        "pct": 82
+      },
+      {
+        "name": "Rotate 45°",
+        "similarity": 0.7294316076971462,
+        "pct": 73
+      },
+      {
+        "name": "Crop 10%",
+        "similarity": 0.8538294750405396,
+        "pct": 85
+      },
+      {
+        "name": "Crop 20%",
+        "similarity": 0.8133741902516198,
+        "pct": 81
+      },
+      {
+        "name": "Crop 35%",
+        "similarity": 0.7135243357253288,
+        "pct": 71
+      },
+      {
+        "name": "Scale 80%",
+        "similarity": 0.7929737672857268,
+        "pct": 79
+      },
+      {
+        "name": "Scale 120%",
+        "similarity": 0.8481212955348145,
+        "pct": 85
+      },
+      {
+        "name": "Scale 150%",
+        "similarity": 0.8879335847092041,
+        "pct": 89
+      },
+      {
+        "name": "Flip H",
+        "similarity": 0.979878268090649,
+        "pct": 98
+      },
+      {
+        "name": "Flip V",
+        "similarity": 0.8227570039908685,
+        "pct": 82
+      },
+      {
+        "name": "Rotate 90° + Crop 20%",
+        "similarity": 0.7144572322957585,
+        "pct": 71
+      }
+    ]
+  },
+  {
+    "file": "test-images/photo-map.jpg",
+    "model": "clip",
+    "results": [
+      {
+        "name": "Identity",
+        "similarity": 1.0000000000000002,
+        "pct": 100
+      },
+      {
+        "name": "Rotate 90°",
+        "similarity": 0.8688851490107715,
+        "pct": 87
+      },
+      {
+        "name": "Rotate 180°",
+        "similarity": 0.8067753492664099,
+        "pct": 81
+      },
+      {
+        "name": "Rotate 270°",
+        "similarity": 0.8796633827603842,
+        "pct": 88
+      },
+      {
+        "name": "Rotate 15°",
+        "similarity": 0.9579311320425995,
+        "pct": 96
+      },
+      {
+        "name": "Rotate 45°",
+        "similarity": 0.920408185766351,
+        "pct": 92
+      },
+      {
+        "name": "Crop 10%",
+        "similarity": 0.9790445176842507,
+        "pct": 98
+      },
+      {
+        "name": "Crop 20%",
+        "similarity": 0.9458953897659362,
+        "pct": 95
+      },
+      {
+        "name": "Crop 35%",
+        "similarity": 0.8500693573953506,
+        "pct": 85
+      },
+      {
+        "name": "Scale 80%",
+        "similarity": 0.9393846489165504,
+        "pct": 94
+      },
+      {
+        "name": "Scale 120%",
+        "similarity": 0.9837369136085619,
+        "pct": 98
+      },
+      {
+        "name": "Scale 150%",
+        "similarity": 0.9708953172543986,
+        "pct": 97
+      },
+      {
+        "name": "Flip H",
+        "similarity": 0.9819125299579157,
+        "pct": 98
+      },
+      {
+        "name": "Flip V",
+        "similarity": 0.7940563799710557,
+        "pct": 79
+      },
+      {
+        "name": "Rotate 90° + Crop 20%",
+        "similarity": 0.853935168819265,
+        "pct": 85
+      }
+    ]
+  },
+  {
+    "file": "test-images/photo-mountain.jpg",
+    "model": "clip",
+    "results": [
+      {
+        "name": "Identity",
+        "similarity": 0.9999999999999999,
+        "pct": 100
+      },
+      {
+        "name": "Rotate 90°",
+        "similarity": 0.8151080443683274,
+        "pct": 82
+      },
+      {
+        "name": "Rotate 180°",
+        "similarity": 0.7926273616582487,
+        "pct": 79
+      },
+      {
+        "name": "Rotate 270°",
+        "similarity": 0.8022674643725752,
+        "pct": 80
+      },
+      {
+        "name": "Rotate 15°",
+        "similarity": 0.8914348389492665,
+        "pct": 89
+      },
+      {
+        "name": "Rotate 45°",
+        "similarity": 0.793317295533797,
+        "pct": 79
+      },
+      {
+        "name": "Crop 10%",
+        "similarity": 0.9570548191676214,
+        "pct": 96
+      },
+      {
+        "name": "Crop 20%",
+        "similarity": 0.9424954746019033,
+        "pct": 94
+      },
+      {
+        "name": "Crop 35%",
+        "similarity": 0.8401317607849847,
+        "pct": 84
+      },
+      {
+        "name": "Scale 80%",
+        "similarity": 0.8563745268761362,
+        "pct": 86
+      },
+      {
+        "name": "Scale 120%",
+        "similarity": 0.9536262505227444,
+        "pct": 95
+      },
+      {
+        "name": "Scale 150%",
+        "similarity": 0.9378661311905807,
+        "pct": 94
+      },
+      {
+        "name": "Flip H",
+        "similarity": 0.9935036903036956,
+        "pct": 99
+      },
+      {
+        "name": "Flip V",
+        "similarity": 0.7659408418855066,
+        "pct": 77
+      },
+      {
+        "name": "Rotate 90° + Crop 20%",
+        "similarity": 0.7991832234531833,
+        "pct": 80
+      }
+    ]
+  },
+  {
+    "file": "test-images/photo-painting.jpg",
+    "model": "clip",
+    "results": [
+      {
+        "name": "Identity",
+        "similarity": 1.0000000000000002,
+        "pct": 100
+      },
+      {
+        "name": "Rotate 90°",
+        "similarity": 0.9166052495051471,
+        "pct": 92
+      },
+      {
+        "name": "Rotate 180°",
+        "similarity": 0.9281841440767686,
+        "pct": 93
+      },
+      {
+        "name": "Rotate 270°",
+        "similarity": 0.9274440921267906,
+        "pct": 93
+      },
+      {
+        "name": "Rotate 15°",
+        "similarity": 0.8956831216877238,
+        "pct": 90
+      },
+      {
+        "name": "Rotate 45°",
+        "similarity": 0.859982946799494,
+        "pct": 86
+      },
+      {
+        "name": "Crop 10%",
+        "similarity": 0.9168725224541933,
+        "pct": 92
+      },
+      {
+        "name": "Crop 20%",
+        "similarity": 0.8500665240596407,
+        "pct": 85
+      },
+      {
+        "name": "Crop 35%",
+        "similarity": 0.8094156609173733,
+        "pct": 81
+      },
+      {
+        "name": "Scale 80%",
+        "similarity": 0.8877645547548115,
+        "pct": 89
+      },
+      {
+        "name": "Scale 120%",
+        "similarity": 0.9088677556914498,
+        "pct": 91
+      },
+      {
+        "name": "Scale 150%",
+        "similarity": 0.923087009504979,
+        "pct": 92
+      },
+      {
+        "name": "Flip H",
+        "similarity": 0.9658843382013518,
+        "pct": 97
+      },
+      {
+        "name": "Flip V",
+        "similarity": 0.9533714203365133,
+        "pct": 95
+      },
+      {
+        "name": "Rotate 90° + Crop 20%",
+        "similarity": 0.8772486942234778,
+        "pct": 88
+      }
+    ]
+  },
+  {
+    "file": "test-images/photo-sign.jpg",
     "model": "clip",
     "results": [
       {
@@ -243,7 +810,88 @@
     ]
   },
   {
-    "file": "test-images/food.jpg",
+    "file": "test-images/text-readme.png",
+    "model": "clip",
+    "results": [
+      {
+        "name": "Identity",
+        "similarity": 1,
+        "pct": 100
+      },
+      {
+        "name": "Rotate 90°",
+        "similarity": 0.873539789320461,
+        "pct": 87
+      },
+      {
+        "name": "Rotate 180°",
+        "similarity": 0.9483894818426433,
+        "pct": 95
+      },
+      {
+        "name": "Rotate 270°",
+        "similarity": 0.8582288480395218,
+        "pct": 86
+      },
+      {
+        "name": "Rotate 15°",
+        "similarity": 0.8770337777529666,
+        "pct": 88
+      },
+      {
+        "name": "Rotate 45°",
+        "similarity": 0.9165287555056782,
+        "pct": 92
+      },
+      {
+        "name": "Crop 10%",
+        "similarity": 0.9545247734249601,
+        "pct": 95
+      },
+      {
+        "name": "Crop 20%",
+        "similarity": 0.9098527370909318,
+        "pct": 91
+      },
+      {
+        "name": "Crop 35%",
+        "similarity": 0.7653628704748341,
+        "pct": 77
+      },
+      {
+        "name": "Scale 80%",
+        "similarity": 0.9222007780540499,
+        "pct": 92
+      },
+      {
+        "name": "Scale 120%",
+        "similarity": 0.939454566921187,
+        "pct": 94
+      },
+      {
+        "name": "Scale 150%",
+        "similarity": 0.8735079864589785,
+        "pct": 87
+      },
+      {
+        "name": "Flip H",
+        "similarity": 0.9246259303698562,
+        "pct": 92
+      },
+      {
+        "name": "Flip V",
+        "similarity": 0.9762414696279773,
+        "pct": 98
+      },
+      {
+        "name": "Rotate 90° + Crop 20%",
+        "similarity": 0.8759246700065281,
+        "pct": 88
+      }
+    ]
+  },
+  {
+    "file": "test-images/webpage-example.png",
     "model": "clip",
     "results": [
       {
@@ -253,78 +901,240 @@
       },
       {
         "name": "Rotate 90°",
-        "similarity": 0.8881546713348636,
-        "pct": 89
+        "similarity": 0.818703666209306,
+        "pct": 82
       },
       {
         "name": "Rotate 180°",
-        "similarity": 0.7839052336487622,
+        "similarity": 0.8308133396604643,
+        "pct": 83
+      },
+      {
+        "name": "Rotate 270°",
+        "similarity": 0.8015657873012607,
+        "pct": 80
+      },
+      {
+        "name": "Rotate 15°",
+        "similarity": 0.9017112442005495,
+        "pct": 90
+      },
+      {
+        "name": "Rotate 45°",
+        "similarity": 0.8249080635401613,
+        "pct": 82
+      },
+      {
+        "name": "Crop 10%",
+        "similarity": 0.8522955375359014,
+        "pct": 85
+      },
+      {
+        "name": "Crop 20%",
+        "similarity": 0.8398398059138276,
+        "pct": 84
+      },
+      {
+        "name": "Crop 35%",
+        "similarity": 0.7462268509006108,
+        "pct": 75
+      },
+      {
+        "name": "Scale 80%",
+        "similarity": 0.8347076371571764,
+        "pct": 83
+      },
+      {
+        "name": "Scale 120%",
+        "similarity": 0.8915195392233519,
+        "pct": 89
+      },
+      {
+        "name": "Scale 150%",
+        "similarity": 0.8299268929161318,
+        "pct": 83
+      },
+      {
+        "name": "Flip H",
+        "similarity": 0.8831357376015528,
+        "pct": 88
+      },
+      {
+        "name": "Flip V",
+        "similarity": 0.8072689821464079,
+        "pct": 81
+      },
+      {
+        "name": "Rotate 90° + Crop 20%",
+        "similarity": 0.7682937095563307,
+        "pct": 77
+      }
+    ]
+  },
+  {
+    "file": "test-images/webpage-hn.png",
+    "model": "clip",
+    "results": [
+      {
+        "name": "Identity",
+        "similarity": 1.0000000000000002,
+        "pct": 100
+      },
+      {
+        "name": "Rotate 90°",
+        "similarity": 0.8722735696028525,
+        "pct": 87
+      },
+      {
+        "name": "Rotate 180°",
+        "similarity": 0.8662643445497985,
+        "pct": 87
+      },
+      {
+        "name": "Rotate 270°",
+        "similarity": 0.8697979816943165,
+        "pct": 87
+      },
+      {
+        "name": "Rotate 15°",
+        "similarity": 0.8881333757982718,
+        "pct": 89
+      },
+      {
+        "name": "Rotate 45°",
+        "similarity": 0.8527647133920313,
+        "pct": 85
+      },
+      {
+        "name": "Crop 10%",
+        "similarity": 0.8881803398038733,
+        "pct": 89
+      },
+      {
+        "name": "Crop 20%",
+        "similarity": 0.783927726854521,
+        "pct": 78
+      },
+      {
+        "name": "Crop 35%",
+        "similarity": 0.48517599803278955,
+        "pct": 49
+      },
+      {
+        "name": "Scale 80%",
+        "similarity": 0.8777387268625028,
+        "pct": 88
+      },
+      {
+        "name": "Scale 120%",
+        "similarity": 0.8787689615789664,
+        "pct": 88
+      },
+      {
+        "name": "Scale 150%",
+        "similarity": 0.7561508378134807,
+        "pct": 76
+      },
+      {
+        "name": "Flip H",
+        "similarity": 0.8940746313874213,
+        "pct": 89
+      },
+      {
+        "name": "Flip V",
+        "similarity": 0.9400008732683109,
+        "pct": 94
+      },
+      {
+        "name": "Rotate 90° + Crop 20%",
+        "similarity": 0.8444860491925503,
+        "pct": 84
+      }
+    ]
+  },
+  {
+    "file": "test-images/webpage-sotw.png",
+    "model": "clip",
+    "results": [
+      {
+        "name": "Identity",
+        "similarity": 1,
+        "pct": 100
+      },
+      {
+        "name": "Rotate 90°",
+        "similarity": 0.7180789823118595,
+        "pct": 72
+      },
+      {
+        "name": "Rotate 180°",
+        "similarity": 0.7821405176524349,
         "pct": 78
       },
       {
         "name": "Rotate 270°",
-        "similarity": 0.8465295095884139,
-        "pct": 85
+        "similarity": 0.7286372454601254,
+        "pct": 73
       },
       {
         "name": "Rotate 15°",
-        "similarity": 0.8800193100852967,
-        "pct": 88
+        "similarity": 0.8451235808872444,
+        "pct": 85
       },
       {
         "name": "Rotate 45°",
-        "similarity": 0.8419215401389496,
-        "pct": 84
+        "similarity": 0.7246347708576276,
+        "pct": 72
       },
       {
         "name": "Crop 10%",
-        "similarity": 0.9600053168195725,
-        "pct": 96
+        "similarity": 0.8110575119790935,
+        "pct": 81
       },
       {
         "name": "Crop 20%",
-        "similarity": 0.9203137360956146,
-        "pct": 92
-      },
-      {
-        "name": "Crop 35%",
-        "similarity": 0.8846049541883704,
-        "pct": 88
-      },
-      {
-        "name": "Scale 80%",
-        "similarity": 0.8295716700741856,
-        "pct": 83
-      },
-      {
-        "name": "Scale 120%",
-        "similarity": 0.8964435160125493,
-        "pct": 90
-      },
-      {
-        "name": "Scale 150%",
-        "similarity": 0.9380085823457317,
-        "pct": 94
-      },
-      {
-        "name": "Flip H",
-        "similarity": 0.9935414387288354,
-        "pct": 99
-      },
-      {
-        "name": "Flip V",
-        "similarity": 0.7669950411640817,
+        "similarity": 0.7741379672669736,
         "pct": 77
       },
       {
+        "name": "Crop 35%",
+        "similarity": 0.7285591028060953,
+        "pct": 73
+      },
+      {
+        "name": "Scale 80%",
+        "similarity": 0.8409504713800728,
+        "pct": 84
+      },
+      {
+        "name": "Scale 120%",
+        "similarity": 0.8835873161865342,
+        "pct": 88
+      },
+      {
+        "name": "Scale 150%",
+        "similarity": 0.8417997755833797,
+        "pct": 84
+      },
+      {
+        "name": "Flip H",
+        "similarity": 0.8563013090941545,
+        "pct": 86
+      },
+      {
+        "name": "Flip V",
+        "similarity": 0.7853277252533208,
+        "pct": 79
+      },
+      {
         "name": "Rotate 90° + Crop 20%",
-        "similarity": 0.866810849801395,
-        "pct": 87
+        "similarity": 0.7135227225490038,
+        "pct": 71
       }
     ]
   },
   {
-    "file": "test-images/forest.jpg",
+    "file": "test-images/webpage-wikipedia.png",
     "model": "clip",
     "results": [
       {
@@ -334,478 +1144,73 @@
       },
       {
         "name": "Rotate 90°",
-        "similarity": 0.7556193985229963,
-        "pct": 76
+        "similarity": 0.6023254351448906,
+        "pct": 60
       },
       {
         "name": "Rotate 180°",
-        "similarity": 0.764645937318343,
-        "pct": 76
-      },
-      {
-        "name": "Rotate 270°",
-        "similarity": 0.7725612625062909,
+        "similarity": 0.7653373394868337,
         "pct": 77
       },
       {
+        "name": "Rotate 270°",
+        "similarity": 0.6097961133391074,
+        "pct": 61
+      },
+      {
         "name": "Rotate 15°",
-        "similarity": 0.8819614364053067,
-        "pct": 88
+        "similarity": 0.8237495682343847,
+        "pct": 82
       },
       {
         "name": "Rotate 45°",
-        "similarity": 0.7489049982624557,
-        "pct": 75
+        "similarity": 0.6541333991491127,
+        "pct": 65
       },
       {
         "name": "Crop 10%",
-        "similarity": 0.9045336183669876,
-        "pct": 90
-      },
-      {
-        "name": "Crop 20%",
-        "similarity": 0.8891203638595321,
-        "pct": 89
-      },
-      {
-        "name": "Crop 35%",
-        "similarity": 0.7142607354321068,
+        "similarity": 0.7058327244064737,
         "pct": 71
       },
       {
+        "name": "Crop 20%",
+        "similarity": 0.6883292730555066,
+        "pct": 69
+      },
+      {
+        "name": "Crop 35%",
+        "similarity": 0.6965922136128744,
+        "pct": 70
+      },
+      {
         "name": "Scale 80%",
-        "similarity": 0.854585950108198,
-        "pct": 85
+        "similarity": 0.8314602395892692,
+        "pct": 83
       },
       {
         "name": "Scale 120%",
-        "similarity": 0.9143219954477988,
-        "pct": 91
+        "similarity": 0.7813176621964687,
+        "pct": 78
       },
       {
         "name": "Scale 150%",
-        "similarity": 0.9042289229084861,
-        "pct": 90
-      },
-      {
-        "name": "Flip H",
-        "similarity": 0.9854757965508872,
-        "pct": 99
-      },
-      {
-        "name": "Flip V",
-        "similarity": 0.7739546935320274,
-        "pct": 77
-      },
-      {
-        "name": "Rotate 90° + Crop 20%",
-        "similarity": 0.7288439574403601,
+        "similarity": 0.7296472096973265,
         "pct": 73
-      }
-    ]
-  },
-  {
-    "file": "test-images/landscape.jpg",
-    "model": "clip",
-    "results": [
-      {
-        "name": "Identity",
-        "similarity": 0.9999999999999998,
-        "pct": 100
-      },
-      {
-        "name": "Rotate 90°",
-        "similarity": 0.8733850585089804,
-        "pct": 87
-      },
-      {
-        "name": "Rotate 180°",
-        "similarity": 0.9181321986796948,
-        "pct": 92
-      },
-      {
-        "name": "Rotate 270°",
-        "similarity": 0.8859512698134505,
-        "pct": 89
-      },
-      {
-        "name": "Rotate 15°",
-        "similarity": 0.8878638344342229,
-        "pct": 89
-      },
-      {
-        "name": "Rotate 45°",
-        "similarity": 0.8282270870580295,
-        "pct": 83
-      },
-      {
-        "name": "Crop 10%",
-        "similarity": 0.9789069946270873,
-        "pct": 98
-      },
-      {
-        "name": "Crop 20%",
-        "similarity": 0.9503403275495061,
-        "pct": 95
-      },
-      {
-        "name": "Crop 35%",
-        "similarity": 0.894846891156619,
-        "pct": 89
-      },
-      {
-        "name": "Scale 80%",
-        "similarity": 0.8308652626368175,
-        "pct": 83
-      },
-      {
-        "name": "Scale 120%",
-        "similarity": 0.9539492810324078,
-        "pct": 95
-      },
-      {
-        "name": "Scale 150%",
-        "similarity": 0.9520230743922777,
-        "pct": 95
       },
       {
         "name": "Flip H",
-        "similarity": 0.993746533374584,
-        "pct": 99
+        "similarity": 0.7495542690031898,
+        "pct": 75
       },
       {
         "name": "Flip V",
-        "similarity": 0.891656517707071,
-        "pct": 89
+        "similarity": 0.697130069800898,
+        "pct": 70
       },
       {
         "name": "Rotate 90° + Crop 20%",
-        "similarity": 0.8648654615696498,
-        "pct": 86
-      }
-    ]
-  },
-  {
-    "file": "test-images/nature.jpg",
-    "model": "clip",
-    "results": [
-      {
-        "name": "Identity",
-        "similarity": 1,
-        "pct": 100
-      },
-      {
-        "name": "Rotate 90°",
-        "similarity": 0.8992949669524345,
-        "pct": 90
-      },
-      {
-        "name": "Rotate 180°",
-        "similarity": 0.9203893195711224,
-        "pct": 92
-      },
-      {
-        "name": "Rotate 270°",
-        "similarity": 0.8889335379877172,
-        "pct": 89
-      },
-      {
-        "name": "Rotate 15°",
-        "similarity": 0.9327497276978776,
-        "pct": 93
-      },
-      {
-        "name": "Rotate 45°",
-        "similarity": 0.9022067034491685,
-        "pct": 90
-      },
-      {
-        "name": "Crop 10%",
-        "similarity": 0.9831103186250878,
-        "pct": 98
-      },
-      {
-        "name": "Crop 20%",
-        "similarity": 0.957783005048931,
-        "pct": 96
-      },
-      {
-        "name": "Crop 35%",
-        "similarity": 0.8540761622247913,
-        "pct": 85
-      },
-      {
-        "name": "Scale 80%",
-        "similarity": 0.8905961999509033,
-        "pct": 89
-      },
-      {
-        "name": "Scale 120%",
-        "similarity": 0.968165852279934,
-        "pct": 97
-      },
-      {
-        "name": "Scale 150%",
-        "similarity": 0.9605157820538675,
-        "pct": 96
-      },
-      {
-        "name": "Flip H",
-        "similarity": 0.990141325040907,
-        "pct": 99
-      },
-      {
-        "name": "Flip V",
-        "similarity": 0.8977239522975706,
-        "pct": 90
-      },
-      {
-        "name": "Rotate 90° + Crop 20%",
-        "similarity": 0.8576397001774889,
-        "pct": 86
-      }
-    ]
-  },
-  {
-    "file": "test-images/ocean.jpg",
-    "model": "clip",
-    "results": [
-      {
-        "name": "Identity",
-        "similarity": 1,
-        "pct": 100
-      },
-      {
-        "name": "Rotate 90°",
-        "similarity": 0.9624307708696878,
-        "pct": 96
-      },
-      {
-        "name": "Rotate 180°",
-        "similarity": 0.8308739055135856,
-        "pct": 83
-      },
-      {
-        "name": "Rotate 270°",
-        "similarity": 0.9478253125078383,
-        "pct": 95
-      },
-      {
-        "name": "Rotate 15°",
-        "similarity": 0.8369486198226287,
-        "pct": 84
-      },
-      {
-        "name": "Rotate 45°",
-        "similarity": 0.8287263289305962,
-        "pct": 83
-      },
-      {
-        "name": "Crop 10%",
-        "similarity": 0.9277630793523385,
-        "pct": 93
-      },
-      {
-        "name": "Crop 20%",
-        "similarity": 0.875737917026447,
-        "pct": 88
-      },
-      {
-        "name": "Crop 35%",
-        "similarity": 0.7551425538013705,
-        "pct": 76
-      },
-      {
-        "name": "Scale 80%",
-        "similarity": 0.8066775582503587,
-        "pct": 81
-      },
-      {
-        "name": "Scale 120%",
-        "similarity": 0.9208347861143249,
-        "pct": 92
-      },
-      {
-        "name": "Scale 150%",
-        "similarity": 0.8771766521480767,
-        "pct": 88
-      },
-      {
-        "name": "Flip H",
-        "similarity": 0.9814016074586779,
-        "pct": 98
-      },
-      {
-        "name": "Flip V",
-        "similarity": 0.8678473475333226,
-        "pct": 87
-      },
-      {
-        "name": "Rotate 90° + Crop 20%",
-        "similarity": 0.8433760342248496,
-        "pct": 84
-      }
-    ]
-  },
-  {
-    "file": "test-images/people.jpg",
-    "model": "clip",
-    "results": [
-      {
-        "name": "Identity",
-        "similarity": 1,
-        "pct": 100
-      },
-      {
-        "name": "Rotate 90°",
-        "similarity": 0.9189357376631483,
-        "pct": 92
-      },
-      {
-        "name": "Rotate 180°",
-        "similarity": 0.8516468701257137,
-        "pct": 85
-      },
-      {
-        "name": "Rotate 270°",
-        "similarity": 0.92167984052179,
-        "pct": 92
-      },
-      {
-        "name": "Rotate 15°",
-        "similarity": 0.8926770001903336,
-        "pct": 89
-      },
-      {
-        "name": "Rotate 45°",
-        "similarity": 0.8805277531322354,
-        "pct": 88
-      },
-      {
-        "name": "Crop 10%",
-        "similarity": 0.9501545545672437,
-        "pct": 95
-      },
-      {
-        "name": "Crop 20%",
-        "similarity": 0.93529274539626,
-        "pct": 94
-      },
-      {
-        "name": "Crop 35%",
-        "similarity": 0.8557153203845945,
-        "pct": 86
-      },
-      {
-        "name": "Scale 80%",
-        "similarity": 0.8843966378481987,
-        "pct": 88
-      },
-      {
-        "name": "Scale 120%",
-        "similarity": 0.931499464331026,
-        "pct": 93
-      },
-      {
-        "name": "Scale 150%",
-        "similarity": 0.93328685040938,
-        "pct": 93
-      },
-      {
-        "name": "Flip H",
-        "similarity": 0.9862152794428092,
-        "pct": 99
-      },
-      {
-        "name": "Flip V",
-        "similarity": 0.8738208315712515,
-        "pct": 87
-      },
-      {
-        "name": "Rotate 90° + Crop 20%",
-        "similarity": 0.8684978415735168,
-        "pct": 87
-      }
-    ]
-  },
-  {
-    "file": "test-images/portrait.jpg",
-    "model": "clip",
-    "results": [
-      {
-        "name": "Identity",
-        "similarity": 1,
-        "pct": 100
-      },
-      {
-        "name": "Rotate 90°",
-        "similarity": 0.879383919124751,
-        "pct": 88
-      },
-      {
-        "name": "Rotate 180°",
-        "similarity": 0.8237186574550706,
-        "pct": 82
-      },
-      {
-        "name": "Rotate 270°",
-        "similarity": 0.8953372434749817,
-        "pct": 90
-      },
-      {
-        "name": "Rotate 15°",
-        "similarity": 0.9385641771159706,
-        "pct": 94
-      },
-      {
-        "name": "Rotate 45°",
-        "similarity": 0.8149856949452616,
-        "pct": 81
-      },
-      {
-        "name": "Crop 10%",
-        "similarity": 0.9824011638977835,
-        "pct": 98
-      },
-      {
-        "name": "Crop 20%",
-        "similarity": 0.9593421338130164,
-        "pct": 96
-      },
-      {
-        "name": "Crop 35%",
-        "similarity": 0.9018514653019489,
-        "pct": 90
-      },
-      {
-        "name": "Scale 80%",
-        "similarity": 0.8788377284894315,
-        "pct": 88
-      },
-      {
-        "name": "Scale 120%",
-        "similarity": 0.9664234495278506,
-        "pct": 97
-      },
-      {
-        "name": "Scale 150%",
-        "similarity": 0.9537055992628705,
-        "pct": 95
-      },
-      {
-        "name": "Flip H",
-        "similarity": 0.993412993353825,
-        "pct": 99
-      },
-      {
-        "name": "Flip V",
-        "similarity": 0.8204934607623786,
-        "pct": 82
-      },
-      {
-        "name": "Rotate 90° + Crop 20%",
-        "similarity": 0.8418445883781891,
-        "pct": 84
+        "similarity": 0.5572434606781104,
+        "pct": 56
       }
     ]
   }

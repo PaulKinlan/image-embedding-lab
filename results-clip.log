@@ -2,23 +2,33 @@ Loading CLIP (Xenova/clip-vit-base-patch32)…
 dtype not specified for "vision_model". Using the default dtype (fp32) for this device (cpu).
 CLIP loaded.
 
-Processing: test-images/abstract.jpg
+Processing: test-images/photo-cathedral.jpg
   Image: 400×400
-Processing: test-images/architecture.jpg
+Processing: test-images/photo-chart.jpg
   Image: 400×400
-Processing: test-images/city.jpg
+Processing: test-images/photo-diagram.jpg
   Image: 400×400
-Processing: test-images/food.jpg
+Processing: test-images/photo-graph.jpg
   Image: 400×400
-Processing: test-images/forest.jpg
+Processing: test-images/photo-kitten.jpg
   Image: 400×400
-Processing: test-images/landscape.jpg
+Processing: test-images/photo-logo.jpg
   Image: 400×400
-Processing: test-images/nature.jpg
+Processing: test-images/photo-map.jpg
   Image: 400×400
-Processing: test-images/ocean.jpg
+Processing: test-images/photo-mountain.jpg
   Image: 400×400
-Processing: test-images/people.jpg
+Processing: test-images/photo-painting.jpg
   Image: 400×400
-Processing: test-images/portrait.jpg
+Processing: test-images/photo-sign.jpg
   Image: 400×400
+Processing: test-images/text-readme.png
+  Image: 780×493
+Processing: test-images/webpage-example.png
+  Image: 780×493
+Processing: test-images/webpage-hn.png
+  Image: 780×493
+Processing: test-images/webpage-sotw.png
+  Image: 780×493
+Processing: test-images/webpage-wikipedia.png
+  Image: 780×493
