@@ -20,10 +20,12 @@ import { env, pipeline, RawImage } from "@huggingface/transformers";
 import { createCanvas, loadImage } from "canvas";
 import {
   cosineSim,
+  makeTiles,
+  meanPoolVectors,
   meanStd,
   poolEmbedding,
   renderTransform,
-  SIZE,
+  TILE,
   TRANSFORMS,
   VARIANTS,
 } from "./lib/experiment.mjs";
@@ -32,15 +34,19 @@ const MODELS = {
   clip: "Xenova/clip-vit-base-patch32",
   siglip: "Xenova/siglip-base-patch16-224",
   dinov2: "Xenova/dinov2-small",
+  // Higher-resolution encoders (bigger downloads) — see how resolution changes what's captured.
+  siglip384: "Xenova/siglip-base-patch16-384",
+  "clip-l": "Xenova/clip-vit-large-patch14-336",
 };
 
 function parseArgs(argv) {
-  const args = { files: [], model: "clip", json: false, verbose: false, limit: Infinity };
+  const args = { files: [], model: "clip", json: false, verbose: false, limit: Infinity, tiles: 1 };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--model" || a === "-m") args.model = argv[++i];
     else if (a === "--json") args.json = true;
     else if (a === "--limit") args.limit = Number(argv[++i]);
+    else if (a === "--tiles") args.tiles = Math.max(1, Number(argv[++i]) || 1);
     else if (a === "--verbose" || a === "-v") args.verbose = true;
     else if (a === "--help" || a === "-h") {
       console.log(`Usage: node cli.mjs <images...> [options]
@@ -48,6 +54,7 @@ function parseArgs(argv) {
 Options:
   -m, --model <name>   clip | siglip | dinov2 (default: clip)
   --limit <n>          Only process the first n images (quick runs)
+  --tiles <n>          AnyRes tiling: split each image into n×n crops, embed + mean-pool (default 1)
   --json               Output results as JSON
   -v, --verbose        Model download progress
   -h, --help           Show this help`);
@@ -57,19 +64,31 @@ Options:
   return args;
 }
 
-/** Embed a canvas → one pooled, L2-normalized vector. quality=null → raw pixels; a number →
- *  a JPEG round-trip at that quality first (injects real compression noise). */
-async function embedVariant(extractor, canvas, quality) {
-  let src = canvas;
+/**
+ * Render a transform of `img` and embed it → one pooled, L2-normalized vector.
+ *  - quality=null → raw pixels; a number → a JPEG round-trip at that quality first.
+ *  - grid>1 → tile the render into grid×grid crops (each a full TILE-px view), embed each, and
+ *    mean-pool the tile embeddings. Tiling multiplies the resolution the encoder actually sees.
+ */
+async function embedImage(extractor, img, params, quality, grid) {
+  const renderSize = grid * TILE;
+  const canvas = createCanvas(renderSize, renderSize);
+  renderTransform(canvas.getContext("2d"), img, params, renderSize);
+
+  let work = canvas;
   if (quality != null) {
-    const buf = canvas.toBuffer("image/jpeg", { quality });
-    const img = await loadImage(buf);
-    src = createCanvas(SIZE, SIZE);
-    src.getContext("2d").drawImage(img, 0, 0, SIZE, SIZE);
+    const jimg = await loadImage(canvas.toBuffer("image/jpeg", { quality }));
+    work = createCanvas(renderSize, renderSize);
+    work.getContext("2d").drawImage(jimg, 0, 0, renderSize, renderSize);
   }
-  const { data, width, height } = src.getContext("2d").getImageData(0, 0, src.width, src.height);
-  const out = await extractor(new RawImage(data, width, height, 4));
-  return poolEmbedding(out.data, out.dims);
+
+  const embs = [];
+  for (const tile of makeTiles(work, grid, createCanvas)) {
+    const { data, width, height } = tile.getContext("2d").getImageData(0, 0, tile.width, tile.height);
+    const out = await extractor(new RawImage(data, width, height, 4));
+    embs.push(poolEmbedding(out.data, out.dims));
+  }
+  return embs.length === 1 ? embs[0] : meanPoolVectors(embs);
 }
 
 function bar(pct, width = 18) {
@@ -93,6 +112,7 @@ async function main() {
     process.exit(1);
   }
   const files = args.files.slice(0, args.limit);
+  const grid = args.tiles;
   const label = args.model.toUpperCase();
 
   env.allowLocalModels = false;
@@ -115,22 +135,18 @@ async function main() {
   for (const file of files) {
     process.stderr.write(`Processing ${file}…\n`);
     const img = await loadImage(file);
-    const canvas = createCanvas(SIZE, SIZE);
-    const ctx = canvas.getContext("2d");
 
-    renderTransform(ctx, img, {}); // Identity
     const orig = {};
     for (const v of VARIANTS) {
-      orig[v.key] = await embedVariant(extractor, canvas, v.quality);
+      orig[v.key] = await embedImage(extractor, img, {}, v.quality, grid);
       origEmbs[v.key].push(orig[v.key]);
     }
 
     const results = [];
     for (const t of TRANSFORMS) {
-      renderTransform(ctx, img, t.p);
       const row = { name: t.name };
       for (const v of VARIANTS) {
-        row[v.key] = cosineSim(orig[v.key], await embedVariant(extractor, canvas, v.quality));
+        row[v.key] = cosineSim(orig[v.key], await embedImage(extractor, img, t.p, v.quality, grid));
       }
       results.push(row);
     }
@@ -163,6 +179,7 @@ async function main() {
     model: args.model,
     modelId,
     images: files.length,
+    tiles: grid,
     variants: VARIANTS.map((v) => v.key),
     baseline,
     summary,
@@ -175,7 +192,8 @@ async function main() {
   }
 
   // Human table: raw + each JPEG quality.
-  console.log(`\n${label} — ${files.length} image(s), mean similarity across images`);
+  const tileNote = grid > 1 ? ` · ${grid}×${grid} tiling` : "";
+  console.log(`\n${label} — ${files.length} image(s), mean similarity across images${tileNote}`);
   console.log(`(pooled + L2-normalized embeddings; raw pixels vs JPEG q0.9 / q0.5 / q0.2)\n`);
   const head = "raw".padStart(4) + VARIANTS.slice(1).map((v) => v.label.padStart(9)).join("");
   console.log(`  ${"transform".padEnd(22)} ${head}`);

@@ -74,19 +74,30 @@ the batch charts.
 
 ## Using it
 
-**Browser** — open the live link (or serve locally, below). Pick an encoder, drop an image, and
-either drag the sliders + "Test this transform" for a single check, or "Compare all transforms"
-for the full sweep. A progress bar shows each embedding as it runs; results show the raw-pixel
-bar with the JPEG q90/50/20 values beneath, plus the different-image floor.
+**Browser** — open the live link (or serve locally, below). Pick an encoder (224px, higher-res
+384/336, or experimental Gemma 4), choose a **tiling** level (whole image / 2×2 / 3×3), drop an
+image, and either drag the sliders + "Test this transform" for a single check, or "Compare all
+transforms" for the full sweep. A progress bar shows each embedding as it runs; results show the
+raw-pixel bar with the JPEG q90/50/20 values beneath, plus the different-image floor.
+
+Tiling splits the image into crops, embeds each at full model resolution, and pools them — so the
+encoder effectively sees 2×/3× the detail. It's the AnyRes trick VLMs use to read text: try a
+webpage screenshot at 1×1 vs 3×3 and watch the different-image floor drop as the model starts to
+tell documents apart.
 
 **CLI** (batch, Node):
 
 ```sh
 npm install
-node cli.mjs test-images/*.jpg --model clip            # human-readable table
+node cli.mjs test-images/*.jpg --model clip                 # human-readable table
+node cli.mjs test-images/*  --model siglip384               # higher-res encoder
+node cli.mjs test-images/*  --model dinov2 --tiles 3         # 3×3 AnyRes tiling
 node cli.mjs test-images/*  --model dinov2 --json > results-dinov2.json
-python3 scripts/generate_report.py                      # regenerate report.html
+python3 scripts/generate_report.py                          # regenerate report.html
 ```
+
+Models: `clip`, `siglip`, `dinov2` (224px), `siglip384`, `clip-l` (higher-res). `--tiles N` for
+AnyRes tiling.
 
 Both share `lib/experiment.mjs` (transforms, pooling, cosine, JPEG variants) so the browser and
 CLI measure identically.
@@ -99,8 +110,8 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 ## Open questions / where this is going
 
-- **Tiling + higher-resolution encoders** — add a 384 model and an AnyRes-style tiling mode, so
-  the text/webpage images are actually legible to the model. This is the next big experiment.
+- ✅ **Tiling + higher-resolution encoders** — now in: SigLIP-384 / CLIP-L-336 plus a 2×2 / 3×3
+  AnyRes tiling mode. Next: measure the floor drop on documents systematically.
 - **Isolate patch size properly** — compare within one family (CLIP-B/16 vs B/32) instead of
   across three models that differ on everything.
 - **Text↔image alignment** — for CLIP/SigLIP, test whether a transformed image still matches the

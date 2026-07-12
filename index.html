@@ -91,10 +91,26 @@ select#model-select{width:100%;max-width:32rem;padding:.5rem .6rem;font-size:.9r
   <div class="control-group">
     <label>Encoder model</label>
     <select id="model-select">
-      <option value="Xenova/clip-vit-base-patch32">CLIP ViT-Base (OpenAI, language-contrastive, ~100MB)</option>
-      <option value="Xenova/siglip-base-patch16-224">SigLIP Base (Google, language-contrastive, ~370MB)</option>
-      <option value="Xenova/dinov2-small">DINOv2 Small (Meta, self-supervised, ~85MB)</option>
-      <option value="gemma4">Gemma 4 Vision (Google, ONNX Runtime, ~112MB)</option>
+      <optgroup label="224px encoders">
+        <option value="Xenova/clip-vit-base-patch32">CLIP ViT-Base/32 (OpenAI, language, ~100MB)</option>
+        <option value="Xenova/siglip-base-patch16-224">SigLIP Base/16 (Google, language, ~370MB)</option>
+        <option value="Xenova/dinov2-small">DINOv2 Small (Meta, self-supervised, ~85MB)</option>
+      </optgroup>
+      <optgroup label="Higher resolution">
+        <option value="Xenova/siglip-base-patch16-384">SigLIP Base/16 @384 (Google, ~370MB)</option>
+        <option value="Xenova/clip-vit-large-patch14-336">CLIP Large/14 @336 (OpenAI, ~600MB)</option>
+      </optgroup>
+      <optgroup label="Experimental">
+        <option value="gemma4">Gemma 4 Vision (Google, ONNX Runtime, ~112MB)</option>
+      </optgroup>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Tiling (detail)</label>
+    <select id="tiles-select" title="Split the image into N×N crops, embed each, and pool — how VLMs get OCR-level detail from a fixed-resolution encoder">
+      <option value="1">Whole image (1×1)</option>
+      <option value="2">2×2 tiles</option>
+      <option value="3">3×3 tiles</option>
     </select>
   </div>
 </div>
@@ -176,7 +192,7 @@ select#model-select{width:100%;max-width:32rem;padding:.5rem .6rem;font-size:.9r
 <script src="gemma4.js"></script>
 <script type="module">
 import { pipeline, env, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
-import { poolEmbedding, cosineSim as coreCosine, renderTransform as coreRender, TRANSFORMS, VARIANTS, SIZE } from './lib/experiment.mjs';
+import { poolEmbedding, cosineSim as coreCosine, renderTransform as coreRender, makeTiles, meanPoolVectors, TRANSFORMS, VARIANTS, SIZE, TILE } from './lib/experiment.mjs';
 
 env.allowLocalModels = false;
 
@@ -396,16 +412,15 @@ $('test-btn').addEventListener('click', async () => {
   const out = $('test-result');
   try {
     const model = await loadModel();
+    const grid = currentTiles();
     const total = VARIANTS.length * 2;
     let step = 0;
     const tick = (label) => setEmbedProgress(++step, total, label);
-    const origCanvas = renderToTmp({});
     const p = getTransformParams();
-    const canvas = renderToTmp(p);
     const parts = [];
     for (const v of VARIANTS) {
-      const oe = await embed(model, origCanvas, v.quality); tick(`Original · ${v.label}`);
-      const te = await embed(model, canvas, v.quality); tick(`Transform · ${v.label}`);
+      const oe = await embedImage(model, {}, v.quality, grid); tick(`Original · ${v.label}`);
+      const te = await embedImage(model, p, v.quality, grid); tick(`Transform · ${v.label}`);
       parts.push(`${v.label} <strong>${Math.round(coreCosine(oe, te) * 100)}%</strong>`);
     }
     setEmbedProgress(null);
@@ -432,14 +447,31 @@ function cosineSim(a, b) {
 // Embed a canvas → ONE pooled, L2-normalized vector (see lib/experiment.mjs poolEmbedding).
 // jpeg=true routes the pixels through a JPEG round-trip (q0.9) so we can measure how much
 // apparent (in)variance is really compression noise vs the transform itself.
-async function embed(model, canvas, quality) {
-  let src = canvas;
-  if (quality != null) src = await jpegRoundTrip(canvas, quality);
-  if (model === 'gemma4' && window.__gemma4) return await window.__gemma4.embedGemma4(src);
-  const ctx = src.getContext('2d');
-  const { data, width, height } = ctx.getImageData(0, 0, src.width, src.height);
+function mkCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return c;
+}
+
+// Embed a single canvas (raw pixels, no compression, no tiling) → pooled, normalized vector.
+async function embedCanvasRaw(model, canvas) {
+  if (model === 'gemma4' && window.__gemma4) return await window.__gemma4.embedGemma4(canvas);
+  const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
   const out = await extractor(new RawImage(data, width, height, 4));
   return poolEmbedding(out.data, out.dims);
+}
+
+// Render a transform of `image` (default: the uploaded one), optionally JPEG-compress, optionally
+// tile into grid×grid crops, then embed → ONE pooled vector. Tiling multiplies the resolution the
+// encoder actually sees — the AnyRes trick real VLMs use to read fine detail / text.
+async function embedImage(model, params, quality, grid, image = sourceImage) {
+  const renderSize = grid * TILE;
+  const canvas = mkCanvas(renderSize, renderSize);
+  coreRender(canvas.getContext('2d'), image, params, renderSize);
+  const work = quality != null ? await jpegRoundTrip(canvas, quality) : canvas;
+  const embs = [];
+  for (const tile of makeTiles(work, grid, mkCanvas)) embs.push(await embedCanvasRaw(model, tile));
+  return embs.length === 1 ? embs[0] : meanPoolVectors(embs);
 }
 
 function jpegRoundTrip(canvas, quality) {
@@ -466,12 +498,22 @@ function renderToTmp(p) {
   return canvas;
 }
 
+function currentTiles() {
+  return Math.max(1, parseInt($('tiles-select').value) || 1);
+}
+$('tiles-select').addEventListener('change', () => {
+  $('results').innerHTML = '';
+  $('legend').innerHTML = '';
+  $('test-result').textContent = '';
+});
+
 $('compare-btn').addEventListener('click', async () => {
   if (!sourceImage) return;
   const btn = $('compare-btn');
   btn.disabled = true;
   try {
     const model = await loadModel();
+    const grid = currentTiles();
     setStatus('', '');
 
     const total = VARIANTS.length * (1 + TRANSFORMS.length) + FLOOR_REFS.length;
@@ -479,11 +521,10 @@ $('compare-btn').addEventListener('click', async () => {
     const tick = (label) => setEmbedProgress(++step, total, label);
     setEmbedProgress(0, total, 'Preparing…');
 
-    // Original embedding per variant (raw + each JPEG quality).
-    const origCanvas = renderToTmp({});
+    // Original embedding per variant (raw + each JPEG quality), at the chosen tiling.
     const orig = {};
     for (const v of VARIANTS) {
-      orig[v.key] = await embed(model, origCanvas, v.quality);
+      orig[v.key] = await embedImage(model, {}, v.quality, grid);
       tick(`Original · ${v.label}`);
     }
     originalEmbedding = orig.raw; // the floor compares raw-vs-raw
@@ -491,18 +532,17 @@ $('compare-btn').addEventListener('click', async () => {
     // Every transform embedded at raw + each JPEG quality (within-variant similarity).
     const results = [];
     for (const t of TRANSFORMS) {
-      const canvas = renderToTmp(t.p);
-      const row = { name: t.name, thumb: canvas.toDataURL('image/jpeg', 0.9) };
+      const row = { name: t.name, thumb: renderToTmp(t.p).toDataURL('image/jpeg', 0.9) };
       for (const v of VARIANTS) {
-        row[v.key] = coreCosine(orig[v.key], await embed(model, canvas, v.quality));
+        row[v.key] = coreCosine(orig[v.key], await embedImage(model, t.p, v.quality, grid));
         tick(`${t.name} · ${v.label}`);
       }
       results.push(row);
     }
 
-    const floor = await computeFloor(model, tick);
+    const floor = await computeFloor(model, grid, tick);
     setEmbedProgress(null);
-    lastResults = { model, backend, floor, variants: VARIANTS.map((v) => v.key), results };
+    lastResults = { model, backend, floor, tiles: grid, variants: VARIANTS.map((v) => v.key), results };
     renderResults(lastResults);
     setStatus('');
   } catch (e) {
@@ -518,22 +558,20 @@ $('compare-btn').addEventListener('click', async () => {
 // images (different content). Answers "how low is low?" — similarities near it mean "as different
 // as an unrelated image". Cached per model.
 const FLOOR_REFS = ['test-images/photo-kitten.jpg', 'test-images/webpage-hn.png', 'test-images/text-readme.png'];
-async function computeFloor(model, tick) {
-  if (floorCache[model] != null) {
+async function computeFloor(model, grid, tick) {
+  const cacheKey = `${model}@${grid}`;
+  if (floorCache[cacheKey] != null) {
     if (tick) FLOOR_REFS.forEach(() => tick('Baseline floor…'));
-    return floorCache[model];
+    return floorCache[cacheKey];
   }
   try {
     const sims = [];
     for (const url of FLOOR_REFS) {
       const img = await loadImageURL(url);
-      const c = document.createElement('canvas');
-      c.width = SIZE; c.height = SIZE;
-      coreRender(c.getContext('2d'), img, {}, SIZE);
-      sims.push(coreCosine(originalEmbedding, await embed(model, c, null)));
+      sims.push(coreCosine(originalEmbedding, await embedImage(model, {}, null, grid, img)));
       if (tick) tick('Baseline floor…');
     }
-    return (floorCache[model] = sims.reduce((a, b) => a + b, 0) / sims.length);
+    return (floorCache[cacheKey] = sims.reduce((a, b) => a + b, 0) / sims.length);
   } catch (e) {
     console.warn('baseline floor failed:', e);
     return null;
@@ -606,7 +644,8 @@ function renderResults(data) {
     ${floorPct != null ? `<div class="stat"><b style="color:var(--muted)">${floorPct}%</b><span>floor</span></div>` : ''}
   </div>`;
 
-  $('results').innerHTML = `<h2>Similarity to original — raw pixels (bar), JPEG q90/50/20 below</h2>` +
+  const tileTag = data.tiles > 1 ? ` · ${data.tiles}×${data.tiles} tiling` : '';
+  $('results').innerHTML = `<h2>Similarity to original — raw pixels (bar), JPEG q90/50/20 below${tileTag}</h2>` +
     card +
     (floorPct != null
       ? `<p class="floor-line">The <strong>floor</strong> tick on each bar sits at ${floorPct}% — where an <em>unrelated</em> image lands. A bar means "invariant" only if it's well to the right of the floor, not just near 100%. Backend: ${data.backend.toUpperCase()}; embeddings mean-pooled + normalized.</p>`
