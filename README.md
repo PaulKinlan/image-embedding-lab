@@ -5,8 +5,13 @@ image, transform it (rotate, crop, scale, flip, compress…), and watch how much
 moves. Everything runs in your browser via Transformers.js (and there's a Node CLI for batch
 runs) — no server, no API key.
 
-Live: https://paulkinlan.github.io/image-embedding-lab/ · [Batch report](report.html) ·
-[Findings](FINDINGS.md)
+Live: https://paulkinlan.github.io/image-embedding-lab/ · [VLM playground](vlm.html) ·
+[Batch report](report.html) · [Tiling report](tiling-report.html) · [Findings](FINDINGS.md)
+
+The **VLM playground** (`vlm.html`) runs Florence-2 in the browser — caption an image, read its
+text (OCR), or detect objects. It's the counterpart to the embedding lab: where the lab reduces
+an image to one vector, a VLM turns it into text, so you can watch it read a page an embedding
+model can only see as "a document".
 
 ## What this is really about
 
