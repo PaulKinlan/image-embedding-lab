@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Are image embeddings invariant to rotation, cropping, and scaling? Test it yourself with CLIP running in your browser.">
+<title>Image Embedding Lab — are embeddings transformation-invariant?</title>
+<style>
+:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--good:#1a8a3a;--bad:#c0392b;--warn:#e6a700}
+@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--good:#57c97a;--bad:#e06c75;--warn:#d9a441}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:920px;margin:0 auto}
+h1{font-family:Georgia,serif;font-size:1.8rem;font-weight:normal;margin-bottom:.3rem}
+h2{font-family:Georgia,serif;font-size:1.15rem;font-weight:normal;margin:1.5rem 0 .5rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}
+.sub{color:var(--muted);font-size:.85rem;margin-bottom:1.5rem}
+.dropzone{border:2px dashed var(--border);border-radius:.6rem;padding:3rem 1rem;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .2s;background:var(--bg-secondary)}
+.dropzone:hover,.dropzone.dragover{border-color:var(--accent);color:var(--accent)}
+.dropzone input{display:none}
+.status{font-size:.82rem;color:var(--muted);margin:.8rem 0;padding:.5rem .8rem;background:var(--bg-secondary);border-radius:.4rem;display:none}
+.status.show{display:block}
+.status.error{color:var(--bad)}
+.status.loading{color:var(--accent)}
+.progress{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin:.5rem 0;display:none}
+.progress.show{display:block}
+.progress-bar{height:100%;background:var(--accent);width:0;transition:width .3s}
+.image-section{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+@media(max-width:600px){.image-section{grid-template-columns:1fr}}
+.image-section canvas,.image-section img{max-width:100%;border-radius:.4rem;border:1px solid var(--border);background:#fff}
+.image-label{font-size:.75rem;color:var(--muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.04em}
+.controls{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0;align-items:flex-end}
+.control-group{display:flex;flex-direction:column;gap:.2rem}
+.control-group label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.control-group input[type=range]{width:140px;accent-color:var(--accent)}
+.control-group select,.control-group input[type=number]{font:inherit;padding:.25rem .4rem;border:1px solid var(--border);border-radius:.3rem;background:var(--background);color:var(--color);font-size:.8rem}
+button{font:inherit;padding:.5rem 1.1rem;border:1px solid var(--border);border-radius:.35rem;background:var(--accent);color:#fff;cursor:pointer;font-size:.82rem}
+button:hover{opacity:.9}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.secondary{background:var(--bg-secondary);color:var(--color)}
+.results{margin:1.5rem 0}
+.result-row{display:grid;grid-template-columns:80px 1fr 60px;gap:.8rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--border)}
+.result-thumb{width:80px;height:80px;border-radius:.35rem;border:1px solid var(--border);background:#fff;object-fit:cover}
+.result-info{font-size:.8rem}
+.result-name{font-weight:600;color:var(--color)}
+.result-desc{color:var(--muted);font-size:.74rem}
+.sim-bar{width:60px;text-align:right}
+.sim-val{font-size:.85rem;font-weight:700;font-variant-numeric:tabular-nums}
+.sim-bar-track{height:6px;background:var(--border);border-radius:3px;margin-top:.2rem;overflow:hidden}
+.sim-bar-fill{height:100%;border-radius:3px}
+.legend{font-size:.75rem;color:var(--muted);margin-top:.5rem;line-height:1.5}
+.note{font-size:.75rem;color:var(--muted);margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<h1>Image Embedding Lab</h1>
+<p class="sub">Are image embeddings invariant to rotation, cropping, and scaling? Upload an image and find out. CLIP's vision encoder runs entirely in your browser — no server, no API key.</p>
+
+<div class="dropzone" id="dropzone">
+  <p>Drop an image here, or click to choose</p>
+  <input type="file" id="file-input" accept="image/*">
+</div>
+
+<div class="status" id="status"></div>
+<div class="progress" id="progress"><div class="progress-bar" id="progress-bar"></div></div>
+
+<div id="app" style="display:none">
+  <div class="image-section">
+    <div>
+      <div class="image-label">Original</div>
+      <canvas id="original-canvas" width="224" height="224"></canvas>
+    </div>
+    <div>
+      <div class="image-label">Transformed</div>
+      <canvas id="transformed-canvas" width="224" height="224"></canvas>
+    </div>
+  </div>
+
+  <h2>Transform</h2>
+  <div class="controls">
+    <div class="control-group">
+      <label>Rotation</label>
+      <input type="range" id="rotation" min="-180" max="180" value="0" step="15">
+      <span id="rotation-val" style="font-size:.72rem;color:var(--muted)">0°</span>
+    </div>
+    <div class="control-group">
+      <label>Crop (% from each edge)</label>
+      <input type="range" id="crop" min="0" max="40" value="0" step="5">
+      <span id="crop-val" style="font-size:.72rem;color:var(--muted)">0%</span>
+    </div>
+    <div class="control-group">
+      <label>Scale</label>
+      <input type="range" id="scale" min="50" max="150" value="100" step="10">
+      <span id="scale-val" style="font-size:.72rem;color:var(--muted)">100%</span>
+    </div>
+    <div class="control-group">
+      <label>Flip</label>
+      <select id="flip">
+        <option value="none">None</option>
+        <option value="horizontal">Horizontal</option>
+        <option value="vertical">Vertical</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>&nbsp;</label>
+      <button class="secondary" id="reset-btn">Reset</button>
+    </div>
+  </div>
+
+  <button id="compare-btn">Compare embeddings</button>
+
+  <div class="results" id="results"></div>
+  <p class="legend" id="legend"></p>
+</div>
+
+<p class="note">Powered by <a href="https://huggingface.co/Xenova/clip-vit-base-patch32" target="_blank">CLIP ViT-Base</a> via <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js</a> (WebGPU/WASM). Model loads on first use (~100MB). All computation happens locally in your browser. <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
+
+<script type="module">
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+
+env.allowLocalModels = false;
+
+let extractor = null;
+let sourceImage = null; // ImageBitmap or HTMLImageElement
+let originalEmbedding = null;
+
+const $ = (id) => document.getElementById(id);
+const dropzone = $('dropzone');
+const fileInput = $('file-input');
+const status = $('status');
+const progress = $('progress');
+const progressBar = $('progress-bar');
+
+function setStatus(text, cls = '') {
+  status.textContent = text;
+  status.className = 'status show ' + cls;
+}
+function setProgress(pct) {
+  if (pct === null) { progress.classList.remove('show'); return; }
+  progress.classList.add('show');
+  progressBar.style.width = pct + '%';
+}
+
+// --- Model loading ---
+async function loadModel() {
+  if (extractor) return extractor;
+  setStatus('Loading CLIP vision encoder (~100MB, one-time download)…', 'loading');
+  setProgress(0);
+  extractor = await pipeline('image-feature-extraction', 'Xenova/clip-vit-base-patch32', {
+    progress_callback: (data) => {
+      if (data.status === 'progress' && data.total) {
+        setProgress(Math.round(data.loaded / data.total * 100));
+      } else if (data.status === 'done') {
+        setProgress(100);
+      }
+    },
+  });
+  setProgress(null);
+  setStatus('');
+  return extractor;
+}
+
+// --- Image loading ---
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const img = new Image();
+  img.onload = async () => {
+    sourceImage = img;
+    originalEmbedding = null; // invalidate
+    $('app').style.display = 'block';
+    renderTransform();
+    setStatus('Image loaded. Click "Compare embeddings" to start (loads the model on first run).', '');
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+// --- Transformation ---
+function getTransformParams() {
+  return {
+    rotation: parseInt($('rotation').value),
+    crop: parseInt($('crop').value) / 100,
+    scale: parseInt($('scale').value) / 100,
+    flip: $('flip').value,
+  };
+}
+
+function renderToCanvas(canvas, img, params) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, W, H);
+  if (!img) return;
+
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  if (params.rotation) ctx.rotate(params.rotation * Math.PI / 180);
+  if (params.flip === 'horizontal') ctx.scale(-1, 1);
+  if (params.flip === 'vertical') ctx.scale(1, -1);
+
+  // crop: source rectangle inset by crop% from each edge
+  const sw = img.naturalWidth * (1 - params.crop * 2);
+  const sh = img.naturalHeight * (1 - params.crop * 2);
+  const sx = img.naturalWidth * params.crop;
+  const sy = img.naturalHeight * params.crop;
+  // draw, fitted to canvas maintaining aspect, then apply scale
+  const aspect = sw / sh;
+  let dw = W * params.scale, dh = W * params.scale;
+  if (aspect > 1) dh = dw / aspect; else dw = dh * aspect;
+  ctx.drawImage(img, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
+  ctx.restore();
+}
+
+function renderTransform() {
+  if (!sourceImage) return;
+  const params = getTransformParams();
+  // original: no transform
+  renderToCanvas($('original-canvas'), sourceImage, { rotation: 0, crop: 0, scale: 1, flip: 'none' });
+  // transformed
+  renderToCanvas($('transformed-canvas'), sourceImage, params);
+  // update labels
+  $('rotation-val').textContent = params.rotation + '°';
+  $('crop-val').textContent = Math.round(params.crop * 100) + '%';
+  $('scale-val').textContent = Math.round(params.scale * 100) + '%';
+}
+
+['rotation', 'crop', 'scale', 'flip'].forEach(id => {
+  $(id).addEventListener('input', renderTransform);
+});
+$('reset-btn').addEventListener('click', () => {
+  $('rotation').value = 0; $('crop').value = 0; $('scale').value = 100; $('flip').value = 'none';
+  renderTransform();
+});
+
+// --- Embedding comparison ---
+function canvasToDataURL(canvas) {
+  return canvas.toDataURL('image/jpeg', 0.9);
+}
+
+function cosineSim(a, b) {
+  let dot = 0, magA = 0, magB = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; magA += a[i] * a[i]; magB += b[i] * b[i]; }
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+}
+
+async function getEmbedding(canvas) {
+  const dataURL = canvasToDataURL(canvas);
+  const result = await extractor(dataURL);
+  // result is nested array — flatten to Float64Array
+  const flat = result.data || result.tolist()[0];
+  return Float64Array.from(flat);
+}
+
+$('compare-btn').addEventListener('click', async () => {
+  if (!sourceImage) return;
+  const btn = $('compare-btn');
+  btn.disabled = true;
+  try {
+    await loadModel();
+    setStatus('Computing embeddings…', 'loading');
+
+    // compute original embedding (cache it)
+    if (!originalEmbedding) {
+      const origCanvas = document.createElement('canvas');
+      origCanvas.width = 224; origCanvas.height = 224;
+      renderToCanvas(origCanvas, sourceImage, { rotation: 0, crop: 0, scale: 1, flip: 'none' });
+      originalEmbedding = await getEmbedding(origCanvas);
+    }
+
+    // define a set of standard transformations to test
+    const transforms = [
+      { name: 'Original (identity)', params: { rotation: 0, crop: 0, scale: 1, flip: 'none' }, desc: 'No transformation — should be 1.0' },
+      { name: 'Rotate 90°', params: { rotation: 90, crop: 0, scale: 1, flip: 'none' }, desc: 'Quarter turn' },
+      { name: 'Rotate 180°', params: { rotation: 180, crop: 0, scale: 1, flip: 'none' }, desc: 'Upside down' },
+      { name: 'Rotate 270°', params: { rotation: 270, crop: 0, scale: 1, flip: 'none' }, desc: 'Three-quarter turn' },
+      { name: 'Rotate 15°', params: { rotation: 15, crop: 0, scale: 1, flip: 'none' }, desc: 'Slight tilt' },
+      { name: 'Crop 20%', params: { rotation: 0, crop: 0.2, scale: 1, flip: 'none' }, desc: 'Center crop, 20% from each edge' },
+      { name: 'Crop 35%', params: { rotation: 0, crop: 0.35, scale: 1, flip: 'none' }, desc: 'Tight center crop' },
+      { name: 'Scale 80%', params: { rotation: 0, crop: 0, scale: 0.8, flip: 'none' }, desc: 'Shrunk, same aspect' },
+      { name: 'Scale 120%', params: { rotation: 0, crop: 0, scale: 1.2, flip: 'none' }, desc: 'Enlarged' },
+      { name: 'Flip horizontal', params: { rotation: 0, crop: 0, scale: 1, flip: 'horizontal' }, desc: 'Mirror image' },
+      { name: 'Flip vertical', params: { rotation: 0, crop: 0, scale: 1, flip: 'vertical' }, desc: 'Flipped top-to-bottom' },
+      { name: 'Rotate 90° + crop 20%', params: { rotation: 90, crop: 0.2, scale: 1, flip: 'none' }, desc: 'Combined transform' },
+    ];
+
+    const results = [];
+    for (const t of transforms) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 224; canvas.height = 224;
+      renderToCanvas(canvas, sourceImage, t.params);
+      const emb = await getEmbedding(canvas);
+      const sim = cosineSim(originalEmbedding, emb);
+      results.push({ ...t, thumb: canvasToDataURL(canvas), sim });
+    }
+
+    renderResults(results);
+    setStatus('');
+  } catch (e) {
+    console.error(e);
+    setStatus('Error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function renderResults(results) {
+  const container = $('results');
+  container.innerHTML = '<h2>Embedding similarity vs original</h2>';
+  for (const r of results) {
+    const pct = Math.round(r.sim * 100);
+    const cls = pct >= 95 ? 'var(--good)' : pct >= 80 ? 'var(--warn)' : 'var(--bad)';
+    const barCls = pct >= 95 ? 'fill-good' : pct >= 80 ? 'fill-warn' : 'fill-bad';
+    container.innerHTML += `
+      <div class="result-row">
+        <img class="result-thumb" src="${r.thumb}" alt="${r.name}">
+        <div class="result-info">
+          <div class="result-name">${r.name}</div>
+          <div class="result-desc">${r.desc}</div>
+        </div>
+        <div class="sim-bar">
+          <div class="sim-val" style="color:${cls}">${pct}%</div>
+          <div class="sim-bar-track"><div class="sim-bar-fill ${barCls}" style="width:${pct}%;background:${cls}"></div></div>
+        </div>
+      </div>`;
+  }
+  // add color CSS for bars
+  if (!document.getElementById('bar-css')) {
+    const style = document.createElement('style');
+    style.id = 'bar-css';
+    style.textContent = '.fill-good{background:var(--good)}.fill-warn{background:var(--warn)}.fill-bad{background:var(--bad)}';
+    document.head.appendChild(style);
+  }
+  // summary
+  const rotAvg = ['Rotate 90°','Rotate 180°','Rotate 270°'].map(n => results.find(r => r.name === n)?.sim).filter(v => v != null);
+  const cropAvg = ['Crop 20%','Crop 35%'].map(n => results.find(r => r.name === n)?.sim).filter(v => v != null);
+  const flipH = results.find(r => r.name === 'Flip horizontal')?.sim;
+  const rotAvgPct = rotAvg.length ? Math.round(rotAvg.reduce((a,b)=>a+b,0)/rotAvg.length * 100) : '—';
+  const cropAvgPct = cropAvg.length ? Math.round(cropAvg.reduce((a,b)=>a+b,0)/cropAvg.length * 100) : '—';
+  $('legend').innerHTML = `<strong>Summary:</strong> Average rotation similarity: ${rotAvgPct}% · Average crop similarity: ${cropAvgPct}% · Horizontal flip: ${flipH != null ? Math.round(flipH * 100) + '%' : '—'}.<br>High similarity (green) means the encoder is invariant to that transform. Low similarity (red) means it's sensitive — the embedding changes significantly.`;
+}
+</script>
+</body>
+</html>
