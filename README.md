@@ -15,7 +15,7 @@ rotate or crop an image, does a vision encoder still produce "the same" vector? 
 famously do this for *meaning* — "the cat sat on the mat" and "a feline rested on a rug" land in
 nearly the same place. Do image encoders treat a rotated photo as the same photo?
 
-Answering it honestly turned into a tour of how these models — and the way you measure them —
+Answering it turned into a tour of how these models — and the way you measure them —
 actually work. This README is the running log of the questions and what each one taught me.
 
 ## The questions I've been chasing
@@ -65,7 +65,7 @@ Comparing language-aligned vs self-supervised is a big part of the fun.
 
 **7. Semantic invariance vs surface form.**
 Even fixed, no encoder treats a rotated image as *identical* — a ViT's positional embeddings are
-absolute, so a turn is a genuinely different input. Image encoders lack the paraphrase signal
+absolute, so a turn is a different input. Image encoders lack the paraphrase signal
 text encoders get ("this rotated image means the same thing" is never in the training data).
 That framing holds; the earlier mistake was only in the magnitudes.
 

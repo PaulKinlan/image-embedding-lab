@@ -60,7 +60,7 @@ Three things make these numbers trustworthy where an earlier version's were not:
 
 4. **Rotation is still the hardest geometric transform, but not catastrophic.** 72–85% raw,
    comfortably above every floor. The ViT positional-embedding intuition (a 90° turn is a
-   genuinely different input) holds directionally — it just costs ~15–28 points, not ~60.
+   different input) holds directionally — it costs ~15–28 points, not ~60.
 
 5. **Photometric transforms are nearly free.** Grayscale, brightness, occlusion, and blur all sit
    in the high 80s–90s for every model. These encoders care about content layout far more than
@@ -71,7 +71,7 @@ Three things make these numbers trustworthy where an earlier version's were not:
 - Image encoders lack the paraphrase signal text encoders get, so there's no learned
   "a rotated image means the same thing." That framing is right; only the magnitudes were wrong.
 
-## Honest caveats
+## Caveats
 - Rotation/scale are rendered on a mid-gray square (gray ≈ 0 after normalization, so the
   letterbox contributes little), but a non-square image still changes its image-vs-background
   ratio under rotation. Some residual confound remains.

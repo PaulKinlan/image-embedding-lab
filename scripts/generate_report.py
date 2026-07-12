@@ -118,13 +118,13 @@ html_parts.append(f'''
 <h2>Key findings</h2>
 <div class="finding"><b>Patch size does <i>not</i> rank the encoders.</b> With embeddings pooled, SigLIP (patch 16) matches CLIP (patch 32) on rotation, and DINOv2 (patch 14) is close behind. An earlier version of this report compared CLIP's pooled vector against SigLIP/DINOv2's raw <i>unpooled patch grids</i> — rotating an image scrambles a patch grid's token order, which manufactured a fake "small patch = rotation-sensitive" effect. Pooling removes it.</div>
 
-<div class="finding"><b>The baseline is the real story.</b> The different-image floor differs a lot — CLIP {floors.get('clip',0):.0f}%, SigLIP {floors.get('siglip',0):.0f}%, DINOv2 {floors.get('dinov2',0):.0f}%. So CLIP's high absolute scores are partly a compressed embedding space (two unrelated images already sit at {floors.get('clip',0):.0f}%). Normalized to each model's own floor, rotation robustness is CLIP {rot_norm.get('clip',0):.0f}%, SigLIP {rot_norm.get('siglip',0):.0f}%, DINOv2 {rot_norm.get('dinov2',0):.0f}% — comparable. "CLIP is the most invariant" doesn't survive the baseline.</div>
+<div class="finding"><b>The baseline changes the ranking.</b> The different-image floor differs a lot — CLIP {floors.get('clip',0):.0f}%, SigLIP {floors.get('siglip',0):.0f}%, DINOv2 {floors.get('dinov2',0):.0f}%. So CLIP's high absolute scores are partly a compressed embedding space (two unrelated images already sit at {floors.get('clip',0):.0f}%). Normalized to each model's own floor, rotation robustness is CLIP {rot_norm.get('clip',0):.0f}%, SigLIP {rot_norm.get('siglip',0):.0f}%, DINOv2 {rot_norm.get('dinov2',0):.0f}% — comparable. "CLIP is the most invariant" doesn't survive the baseline.</div>
 
 <div class="finding"><b>JPEG q0.9 is negligible.</b> Every transform is embedded twice (raw pixels and a JPEG round-trip); the mean difference is ~1 point. Compression is not what these numbers measure.</div>
 
 <div class="finding"><b>Rotation is the hardest geometric transform — but not catastrophic.</b> 72–85% raw, comfortably above every floor. Photometric changes (grayscale, brightness, blur, occlusion) are nearly free (high 80s–90s): these encoders care about content layout far more than exact pixels.</div>
 
-<div class="finding"><b>Still true:</b> no encoder is fully transformation-invariant — a rotated image is not treated as identical. ViT positional embeddings are absolute, so a turn is a genuinely different input. That framing was right in the earlier write-up; only the magnitudes were wrong.</div>
+<div class="finding"><b>Still true:</b> no encoder is fully transformation-invariant — a rotated image is not treated as identical. ViT positional embeddings are absolute, so a turn is a different input. That framing was right in the earlier write-up; only the magnitudes were wrong.</div>
 ''')
 
 # Per-image breakdown
