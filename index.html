@@ -61,8 +61,9 @@ a{color:var(--accent)}
   <div class="control-group">
     <label>Encoder model</label>
     <select id="model-select">
-      <option value="Xenova/clip-vit-base-patch32">CLIP ViT-Base (OpenAI, ~100MB)</option>
-      <option value="Xenova/siglip-base-patch16-224">SigLIP Base (Google, ~370MB)</option>
+      <option value="Xenova/clip-vit-base-patch32">CLIP ViT-Base (OpenAI, language-contrastive, ~100MB)</option>
+      <option value="Xenova/siglip-base-patch16-224">SigLIP Base (Google, language-contrastive, ~370MB)</option>
+      <option value="Xenova/dinov2-small">DINOv2 Small (Meta, self-supervised, ~85MB)</option>
     </select>
   </div>
 </div>
@@ -124,7 +125,7 @@ a{color:var(--accent)}
   <p class="legend" id="legend"></p>
 </div>
 
-<p class="note">Powered by <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js</a> (WebGPU/WASM). Models: <a href="https://huggingface.co/Xenova/clip-vit-base-patch32" target="_blank">CLIP</a> (OpenAI) and <a href="https://huggingface.co/Xenova/siglip-base-patch16-224" target="_blank">SigLIP</a> (Google). All computation happens locally. Model files cached via service worker. <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
+<p class="note">Powered by <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js</a> (WebGPU/WASM). Models: <a href="https://huggingface.co/Xenova/clip-vit-base-patch32" target="_blank">CLIP</a> (OpenAI, language-aligned), <a href="https://huggingface.co/Xenova/siglip-base-patch16-224" target="_blank">SigLIP</a> (Google, language-aligned), and <a href="https://huggingface.co/Xenova/dinov2-small" target="_blank">DINOv2</a> (Meta, self-supervised — no language). All computation happens locally. Model files cached via service worker. <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
 
 <script type="module">
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
@@ -160,7 +161,7 @@ async function loadModel() {
   extractor = null;
   currentModel = modelId;
   originalEmbedding = null;
-  const label = modelId.includes('clip') ? 'CLIP' : 'SigLIP';
+  const label = modelId.includes('clip') ? 'CLIP' : modelId.includes('siglip') ? 'SigLIP' : 'DINOv2';
   setStatus(`Loading ${label} vision encoder (cached after first download)…`, 'loading');
   setProgress(0);
   extractor = await pipeline('image-feature-extraction', modelId, {
