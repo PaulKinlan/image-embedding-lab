@@ -277,6 +277,17 @@ function setEmbedProgress(done, total, label) {
   $('embed-label').innerHTML = `<span>${label}</span><span>${done}/${total}</span>`;
 }
 
+// A readable on-page error (users can't always open the console). Adds a network hint since the
+// models are large and a dropped download is the common failure on a weak connection.
+function errMsg(e) {
+  const msg = (e && (e.message || e.toString())) || 'unknown error';
+  const net = /fetch|network|Failed to|ERR_|timeout|connection|aborted|load model/i.test(msg);
+  return 'Error: ' + msg +
+    (net
+      ? ' — this looks like a network/download drop. The model download is large; finished files are cached, so try again and it resumes.'
+      : '');
+}
+
 // --- Model loading ---
 async function loadModel() {
   const modelId = $('model-select').value;
@@ -427,7 +438,7 @@ $('test-btn').addEventListener('click', async () => {
     out.innerHTML = `<strong>This transform:</strong> ${parts.join(' · ')} similarity to the original.`;
   } catch (e) {
     setEmbedProgress(null);
-    out.textContent = 'Error: ' + (e && (e.message || e.toString()) || 'unknown');
+    out.textContent = errMsg(e);
   } finally {
     btn.disabled = false;
   }
@@ -548,7 +559,7 @@ $('compare-btn').addEventListener('click', async () => {
   } catch (e) {
     console.error(e);
     setEmbedProgress(null);
-    setStatus('Error: ' + (e && (e.message || e.toString()) || 'unknown'), 'error');
+    setStatus(errMsg(e), 'error');
   } finally {
     btn.disabled = false;
   }

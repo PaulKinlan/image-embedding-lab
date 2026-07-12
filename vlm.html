@@ -98,13 +98,39 @@ function setStatus(t, err) { const s = $('status'); s.textContent = t; s.classNa
 function setBar(pct) { const b = $('bar'); if (pct == null) { b.classList.remove('show'); return; } b.classList.add('show'); $('barfill').style.width = pct + '%'; }
 
 const dl = new Map();
+function barPct() {
+  let l = 0, t = 0;
+  for (const v of dl.values()) { l += v.loaded; t += v.total; }
+  return t ? Math.round((l / t) * 100) : 0;
+}
+function fmtMB(b) { return (b / 1048576).toFixed(0) + ' MB'; }
+function dlTotals() {
+  let l = 0, t = 0;
+  for (const v of dl.values()) { l += v.loaded; t += v.total; }
+  return { l, t };
+}
 function progress_callback(d) {
   const f = d.file || d.name;
   if (d.status === 'progress' && f) dl.set(f, { loaded: d.loaded || 0, total: d.total || 0 });
   else if (d.status === 'done' && f && dl.has(f)) dl.get(f).loaded = dl.get(f).total;
-  let l = 0, t = 0;
-  for (const v of dl.values()) { l += v.loaded; t += v.total; }
+  const { l, t } = dlTotals();
   setBar(t ? Math.round((l / t) * 100) : 0);
+  if (t) setStatus(`Downloading model… ${Math.round((l / t) * 100)}% (${fmtMB(l)} / ${fmtMB(t)}, ${dl.size} files)`);
+}
+
+// Turn any thrown value into a self-explanatory on-page message (no console needed).
+function errorDetail(e) {
+  const name = e && e.name ? e.name : 'Error';
+  const msg = e && e.message ? e.message : String(e);
+  const network = /fetch|network|load|Failed to|ERR_|timeout|connection|aborted|abort|ECONN|dns|Load model/i.test(msg);
+  let out = `${name}: ${msg}`;
+  if (network) {
+    const { t } = dlTotals();
+    out += `\n\nThis looks like a network / download problem. The model is ~0.35 GB, and on a weak or dropping connection the download can fail partway. Good news: finished files are cached, so just tap the task again to resume — it picks up where it left off. Try once or twice more, ideally on stronger signal or Wi-Fi.`;
+    if (t) out += `\n\nGot to ${barPct()}% (${fmtMB(dlTotals().l)} of ${fmtMB(t)}) across ${dl.size} files before it stopped.`;
+  }
+  if (e && e.stack) out += `\n\n— technical —\n${String(e.stack).split('\n').slice(0, 3).join('\n')}`;
+  return out;
 }
 
 async function loadModel() {
@@ -176,8 +202,8 @@ async function run(task) {
     setStatus(`Done (${backend.toUpperCase()}).`);
   } catch (e) {
     console.error(e);
-    $('out').textContent = 'Error: ' + (e && (e.message || e.toString()) || 'unknown');
-    setStatus('Error — see output.', true);
+    $('out').textContent = errorDetail(e);
+    setStatus('Failed — full details in the output panel below.', true);
   } finally {
     setTasksDisabled(false);
   }
@@ -235,8 +261,9 @@ async function showEmbedding() {
       `(mean-pooled from 577 vision tokens).\nFirst values: [${Array.from(e.slice(0, 6)).map((x) => x.toFixed(3)).join(', ')} …]`;
     setStatus(`Embedded (${backend.toUpperCase()}).`);
   } catch (e) {
-    $('out').textContent = 'Error: ' + (e && (e.message || e.toString()) || 'unknown');
-    setStatus('Error — see output.', true);
+    console.error(e);
+    $('out').textContent = errorDetail(e);
+    setStatus('Failed — full details in the output panel below.', true);
   } finally {
     setTasksDisabled(false);
   }
@@ -279,7 +306,8 @@ $('compareBtn').addEventListener('click', async () => {
     const sim = Math.round(cosineSim(a, b) * 100);
     $('simout').innerHTML = `<b style="font-size:1.5rem">${sim}%</b> cosine similarity (Florence-2 image embedding).`;
   } catch (e) {
-    $('simout').textContent = 'Error: ' + (e && (e.message || e.toString()) || 'unknown');
+    console.error(e);
+    $('simout').textContent = errorDetail(e);
   } finally {
     $('compareBtn').disabled = false;
   }
