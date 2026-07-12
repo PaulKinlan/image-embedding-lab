@@ -22,9 +22,20 @@ h2{font-family:Georgia,serif;font-size:1.15rem;font-weight:normal;margin:1.5rem 
 .status.show{display:block}
 .status.error{color:var(--bad)}
 .status.loading{color:var(--accent)}
-.progress{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin:.5rem 0;display:none}
-.progress.show{display:block}
-.progress-bar{height:100%;background:var(--accent);width:0;transition:width .3s}
+.download-panel{margin:.8rem 0;display:none}
+.download-panel.show{display:block}
+.download-panel .dl-overall{font-size:.82rem;color:var(--muted);margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center}
+.download-panel .dl-overall b{color:var(--color)}
+.download-panel .dl-overall .dl-speed{font-size:.72rem;color:var(--accent);font-variant-numeric:tabular-nums}
+.download-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:.6rem}
+.download-bar-fill{height:100%;background:var(--accent);transition:width .3s;border-radius:3px}
+.dl-file{display:grid;grid-template-columns:1fr auto;gap:.3rem;font-size:.72rem;padding:.25rem 0;align-items:center}
+.dl-file .dl-name{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl-file .dl-size{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dl-file .dl-filebar{grid-column:1/-1;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.dl-file .dl-filebar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s}
+.dl-file.cached .dl-name::before{content:'✓ ';color:var(--good)}
+.dl-file.done .dl-name::before{content:'✓ ';color:var(--good)}
 .image-section{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
 @media(max-width:600px){.image-section{grid-template-columns:1fr}}
 .image-section canvas,.image-section img{max-width:100%;border-radius:.4rem;border:1px solid var(--border);background:#fff}
@@ -74,7 +85,11 @@ a{color:var(--accent)}
 </div>
 
 <div class="status" id="status"></div>
-<div class="progress" id="progress"><div class="progress-bar" id="progress-bar"></div></div>
+<div class="download-panel" id="download-panel">
+  <div class="dl-overall"><span><b id="dl-title">Downloading model…</b></span><span class="dl-speed" id="dl-speed"></span></div>
+  <div class="download-bar"><div class="download-bar-fill" id="dl-overall-bar" style="width:0"></div></div>
+  <div id="dl-files"></div>
+</div>
 
 <div id="app" style="display:none">
   <div class="image-section">
@@ -141,8 +156,58 @@ const $ = (id) => document.getElementById(id);
 const dropzone = $('dropzone');
 const fileInput = $('file-input');
 const status = $('status');
-const progress = $('progress');
-const progressBar = $('progress-bar');
+const downloadPanel = $('download-panel');
+
+function fmtBytes(b) {
+  if (!b || b < 1024) return (b || 0) + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+  return (b / 1073741824).toFixed(2) + ' GB';
+}
+
+const dlState = { files: new Map(), lastUpdate: 0, lastLoaded: 0, speed: 0 };
+
+function setDownloadPanel(show) {
+  downloadPanel.classList.toggle('show', show);
+}
+
+function updateDownloadUI() {
+  let totalLoaded = 0, totalSize = 0;
+  for (const f of dlState.files.values()) {
+    totalLoaded += f.loaded || 0;
+    totalSize += f.total || 0;
+  }
+  const pct = totalSize ? Math.round(totalLoaded / totalSize * 100) : 0;
+  $('dl-overall-bar').style.width = pct + '%';
+  // speed
+  const now = Date.now();
+  if (dlState.lastUpdate && now - dlState.lastUpdate > 500) {
+    const dt = (now - dlState.lastUpdate) / 1000;
+    dlState.speed = (totalLoaded - dlState.lastLoaded) / dt;
+    dlState.lastLoaded = totalLoaded;
+    dlState.lastUpdate = now;
+  } else if (!dlState.lastUpdate) {
+    dlState.lastUpdate = now;
+    dlState.lastLoaded = totalLoaded;
+  }
+  $('dl-speed').textContent = dlState.speed > 0 ? fmtBytes(dlState.speed) + '/s' : '';
+  // file list
+  let html = '';
+  for (const [name, f] of dlState.files) {
+    const fpct = f.total ? Math.round(f.loaded / f.total * 100) : 0;
+    const shortName = name.replace(/^onnx\//, '').replace(/^\.\//, '');
+    const status = f.done ? 'done' : f.cached ? 'cached' : '';
+    html += `<div class="dl-file ${status}"><span class="dl-name">${shortName}</span><span class="dl-size">${fmtBytes(f.loaded)} / ${fmtBytes(f.total)}</span><div class="dl-filebar"><div class="dl-filebar-fill" style="width:${status?'100':fpct}%"></div></div></div>`;
+  }
+  $('dl-files').innerHTML = html;
+}
+
+function resetDownloadUI() {
+  dlState.files.clear();
+  dlState.lastUpdate = 0;
+  dlState.lastLoaded = 0;
+  dlState.speed = 0;
+}
 
 function setStatus(text, cls = '') {
   status.textContent = text;
@@ -162,19 +227,34 @@ async function loadModel() {
   currentModel = modelId;
   originalEmbedding = null;
   const label = modelId.includes('clip') ? 'CLIP' : modelId.includes('siglip') ? 'SigLIP' : 'DINOv2';
-  setStatus(`Loading ${label} vision encoder (cached after first download)…`, 'loading');
-  setProgress(0);
+  setStatus(`Loading ${label} vision encoder…`, 'loading');
+  resetDownloadUI();
+  setDownloadPanel(true);
+  $('dl-title').textContent = `Downloading ${label} model files…`;
   extractor = await pipeline('image-feature-extraction', modelId, {
     progress_callback: (data) => {
-      if (data.status === 'progress' && data.total) {
-        setProgress(Math.round(data.loaded / data.total * 100));
+      const file = data.file || data.name || 'unknown';
+      if (data.status === 'initiate' || data.status === 'download') {
+        if (!dlState.files.has(file)) {
+          dlState.files.set(file, { loaded: 0, total: data.total || 0, done: false, cached: data.status === 'initiate' && data.total ? false : false });
+        }
+        if (data.total) dlState.files.get(file).total = data.total;
+        if (data.status === 'download' && !dlState.files.get(file).total) dlState.files.get(file).cached = true;
+      } else if (data.status === 'progress') {
+        if (!dlState.files.has(file)) dlState.files.set(file, { loaded: 0, total: 0, done: false });
+        const f = dlState.files.get(file);
+        f.loaded = data.loaded || 0;
+        f.total = data.total || f.total;
+        f.cached = false;
       } else if (data.status === 'done') {
-        setProgress(100);
+        if (dlState.files.has(file)) { dlState.files.get(file).done = true; dlState.files.get(file).loaded = dlState.files.get(file).total; }
       }
+      updateDownloadUI();
     },
   });
-  setProgress(null);
-  setStatus('');
+  setDownloadPanel(false);
+  setStatus(`${label} model loaded and cached for future visits.`, '');
+  setTimeout(() => setStatus(''), 3000);
   return extractor;
 }
 
