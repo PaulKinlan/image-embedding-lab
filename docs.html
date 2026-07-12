@@ -13,50 +13,70 @@ body{font-family:-apple-system,sans-serif;line-height:1.7;color:var(--color);bac
 h1{font-family:Georgia,serif;font-size:1.6rem;font-weight:normal;margin-bottom:.3rem}
 h2{font-family:Georgia,serif;font-size:1.1rem;font-weight:normal;margin:1.5rem 0 .5rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}
 a{color:var(--accent)}
-.back{font-size:.8rem;margin-bottom:1rem;display:inline-block;color:var(--muted)}
+.nav{display:flex;gap:.5rem;flex-wrap:wrap;margin:0 0 1.25rem;font-size:.78rem}
+.nav a{padding:.3rem .7rem;border:1px solid var(--border);border-radius:999px;background:var(--bg-secondary);text-decoration:none;color:var(--color)}
+.nav a:hover{border-color:var(--accent);color:var(--accent)}
 pre{background:var(--bg-secondary);border:1px solid var(--border);border-radius:.4rem;padding:.8rem;overflow-x:auto;font-size:.78rem;margin:.5rem 0}
 code{font-size:.85rem}
 table{width:100%;border-collapse:collapse;margin:1rem 0}
 th,td{padding:.4rem .6rem;text-align:left;font-size:.8rem;border-bottom:1px solid var(--border)}
 th{background:var(--bg-secondary);font-size:.68rem;text-transform:uppercase;color:var(--muted)}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
+.callout{font-size:.85rem;padding:.8rem;background:var(--bg-secondary);border-left:3px solid var(--accent);border-radius:0 .4rem .4rem 0;margin:.8rem 0}
 </style>
 </head>
 <body>
-<a class="back" href="index.html">← Back to lab</a>
+<div class="nav">
+  <a href="index.html">← Lab</a>
+  <a href="vlm.html">VLM playground</a>
+  <a href="report.html">Batch report</a>
+  <a href="tiling-report.html">Tiling report</a>
+  <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a>
+</div>
 <h1>Image Embedding Lab — Docs</h1>
+
+<h2>Embedding method</h2>
+<p>An embedding is one vector per image: render the image to a square, pass it to the vision encoder, reduce the output to a single vector, and L2-normalize. Everything (invariance, similarity, the floor) compares those vectors by cosine.</p>
+<p>The pooling step is load-bearing. <code>image-feature-extraction</code> returns different shapes per model — a pooled <code>[1,512]</code> for CLIP, but raw patch-token grids for SigLIP <code>[1,196,768]</code> and DINOv2 <code>[1,257,384]</code>. Mean-pooling every model's tokens to one vector is what makes them comparable; skipping it compares flattened patch grids, where a rotation just reshuffles token order (the artifact behind the old "patch size" claim). JPEG (q0.9/0.5/0.2) and tiling are extra axes on top of this.</p>
+<div class="callout">A VLM builds the same object: its encoder turns the image into a token grid and a decoder reads it to write text. Tap the grid and pool it and you get an embedding — Florence-2's <code>encode_image</code> gives <code>[1,577,768]</code> → mean-pool → 768-d. "An embedding" is one pooled hidden state; the alternative is running that hidden state through the output layer to pick the next word. See the <a href="vlm.html">VLM playground</a>.</div>
 
 <h2>Models</h2>
 <table>
-<tr><th>Model</th><th>Provider</th><th>Training</th><th>Size</th><th>Dim</th><th>Patch</th></tr>
-<tr><td>CLIP ViT-Base-Patch32</td><td>OpenAI</td><td>Language-contrastive</td><td>~100MB</td><td>512</td><td>32</td></tr>
-<tr><td>SigLIP Base-Patch16-224</td><td>Google</td><td>Language-contrastive (sigmoid)</td><td>~370MB</td><td>768</td><td>16</td></tr>
-<tr><td>DINOv2 Small</td><td>Meta</td><td>Self-supervised</td><td>~85MB</td><td>384</td><td>14</td></tr>
-<tr><td>Gemma 4 Vision</td><td>Google</td><td>VLM vision tower</td><td>~112MB</td><td>768</td><td>16</td></tr>
+<tr><th>Model</th><th>Provider</th><th>Training</th><th>Input</th><th>Size</th><th>Dim</th></tr>
+<tr><td>CLIP ViT-B/32</td><td>OpenAI</td><td>Language-contrastive</td><td>224</td><td>~100MB</td><td>512 (pooled)</td></tr>
+<tr><td>SigLIP B/16</td><td>Google</td><td>Language-contrastive (sigmoid)</td><td>224</td><td>~370MB</td><td>768 (196 tokens)</td></tr>
+<tr><td>DINOv2 Small</td><td>Meta</td><td>Self-supervised</td><td>224</td><td>~85MB</td><td>384 (257 tokens)</td></tr>
+<tr><td>SigLIP B/16 @384</td><td>Google</td><td>Language-contrastive</td><td>384</td><td>~370MB</td><td>768 (576 tokens)</td></tr>
+<tr><td>CLIP Large/14 @336</td><td>OpenAI</td><td>Language-contrastive</td><td>336</td><td>~600MB</td><td>768 (pooled)</td></tr>
+<tr><td>Florence-2-base-ft</td><td>Microsoft</td><td>VLM (seq2seq)</td><td>768</td><td>~350MB</td><td>768 (577 tokens)</td></tr>
 </table>
 
 <h2>CLI</h2>
 <pre>npm install
-node cli.mjs &lt;image&gt; [--model clip|siglip|dinov2] [--json]</pre>
-<p>Example:</p>
-<pre>node cli.mjs cat.jpg --model dinov2
-node cli.mjs *.jpg --model clip --json &gt; results.json</pre>
-<p>Output: color-coded bars with per-transformation similarity, plus summary stats (rotation avg, crop avg, flip similarity).</p>
+node cli.mjs test-images/*.jpg --model clip            # human-readable table
+node cli.mjs test-images/*  --model siglip384          # higher-res encoder
+node cli.mjs test-images/*  --model dinov2 --tiles 3   # 3×3 AnyRes tiling
+node cli.mjs test-images/*  --model clip --json > results-clip.json
+python3 scripts/generate_report.py                     # regenerate report.html</pre>
+<p>Models: <code>clip</code>, <code>siglip</code>, <code>dinov2</code>, <code>siglip384</code>, <code>clip-l</code>. Each transform is embedded at raw pixels + JPEG q0.9/0.5/0.2; <code>--tiles N</code> tiles the image N×N. The CLI and browser share <code>lib/experiment.mjs</code> so they measure identically.</p>
 
-<h2>Gemma 4 Vision Encoder</h2>
-<p>The Gemma 4 vision encoder runs via <a href="https://onnxruntime.ai/docs/tutorials/web/" target="_blank">ONNX Runtime Web</a> (not Transformers.js) because it's a submodel extracted from the Gemma 4 E2B model, not a standalone pipeline model. The quantized (4-bit) ONNX build is only 112MB.</p>
-<p>Loaded directly from <a href="https://huggingface.co/onnx-community/gemma-4-E2B-it-ONNX/tree/main/onnx" target="_blank">onnx-community/gemma-4-E2B-it-ONNX</a>. Image preprocessing: resize to 224×224, normalize with mean=0.5/std=0.5 (SigLIP-compatible). Output: 280 soft tokens mean-pooled to 768-dim.</p>
+<h2>VLM playground</h2>
+<p><a href="vlm.html">vlm.html</a> runs Florence-2 in the browser: caption, read text (OCR), detect objects, extract the image embedding, and compare two images by cosine. It also runs the rotation-invariance test on Florence-2's own embedding.</p>
+
+<h2>Gemma 4 vision (experimental)</h2>
+<p>Gemma 4's vision encoder is a submodel extracted from Gemma 4 E2B, loaded via <a href="https://onnxruntime.ai/docs/tutorials/web/" target="_blank">ONNX Runtime Web</a> (not Transformers.js). It currently fails at ONNX session creation in-browser (a WASM abort — likely an unsupported op in the q4 build), so it's kept as experimental. The other encoders work.</p>
 
 <h2>Service worker</h2>
-<p>Model blobs (~85–370MB) are cached via service worker (Cache API). Network-first for app shell so updates appear immediately. Update detection with reload banner.</p>
+<p>Model blobs (~85–600MB) are cached via the Cache API. Network-first for the app shell so updates appear immediately; model blobs stay cache-first.</p>
 
-<h2>Experiment results</h2>
-<p><a href="report.html">Full report: 15 images × 4 models × 15 transformations</a></p>
-<p><a href="https://github.com/PaulKinlan/image-embedding-lab/blob/master/FINDINGS.md" target="_blank">FINDINGS.md on GitHub</a></p>
+<h2>Reports</h2>
+<p><a href="report.html">Batch report</a> — 15 images × 3 encoders × 20 transforms, with the corrected numbers.<br>
+<a href="tiling-report.html">Tiling report</a> — does tiling help the encoder see detail? (it depends on how you combine the tiles).<br>
+<a href="https://github.com/PaulKinlan/image-embedding-lab/blob/master/FINDINGS.md" target="_blank">FINDINGS.md</a> — the write-up.</p>
 
-<h2>Key finding</h2>
-<p>Patch size is the dominant factor for transformation invariance. CLIP (patch 32) is the most invariant (83% rotation similarity). SigLIP/DINOv2 (patch 16/14) are rotation-sensitive (~30%). No encoder captures true semantic invariance the way text embeddings do.</p>
+<h2>Current finding</h2>
+<p>Patch size does <em>not</em> rank the encoders — that earlier claim was a pooling artifact. With embeddings pooled, SigLIP (patch 16) matches CLIP (patch 32) on rotation (both ~85%); DINOv2 is ~72%. The real story is the baseline: the different-image floor varies a lot (CLIP 58%, DINOv2 15%), so CLIP's high absolute scores are partly a compressed embedding space. Floor-normalized, the encoders are comparable. No encoder is fully transformation-invariant — a rotated image is not treated as identical, because ViT positional embeddings are absolute.</p>
 
-<p style="margin-top:2rem;font-size:.75rem;color:var(--muted)"><a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a> · <a href="index.html">Lab</a> · <a href="report.html">Report</a></p>
+<p style="margin-top:2rem;font-size:.75rem;color:var(--muted)"><a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a> · <a href="index.html">Lab</a> · <a href="report.html">Report</a> · <a href="tiling-report.html">Tiling</a> · <a href="vlm.html">VLM</a></p>
 </body>
 </html>

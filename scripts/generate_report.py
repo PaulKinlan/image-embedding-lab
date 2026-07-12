@@ -67,7 +67,9 @@ h1{{font-family:Georgia,serif;font-size:1.8rem;font-weight:normal;margin-bottom:
 h2{{font-family:Georgia,serif;font-size:1.2rem;font-weight:normal;margin:1.5rem 0 .5rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}}
 .sub{{color:var(--muted);font-size:.85rem;margin-bottom:1.5rem}}
 a{{color:var(--accent)}}
-.back{{font-size:.8rem;margin-bottom:1rem;display:inline-block}}
+.nav{{display:flex;gap:.5rem;flex-wrap:wrap;margin:0 0 1.25rem;font-size:.78rem}}
+.nav a{{padding:.3rem .7rem;border:1px solid var(--border);border-radius:999px;background:var(--bg-secondary);text-decoration:none;color:var(--color)}}
+.nav a:hover{{border-color:var(--accent);color:var(--accent)}}
 table{{width:100%;border-collapse:collapse;margin:1rem 0}}
 th,td{{padding:.5rem .6rem;text-align:left;font-size:.8rem;border-bottom:1px solid var(--border)}}
 th{{background:var(--bg-secondary);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}}
@@ -83,7 +85,7 @@ td.num,th.num{{text-align:right;font-variant-numeric:tabular-nums}}
 </style>
 </head>
 <body>
-<a class="back" href="index.html">← Back to Image Embedding Lab</a>
+<div class="nav"><a href="index.html">← Lab</a> <a href="vlm.html">VLM playground</a> <a href="tiling-report.html">Tiling report</a> <a href="docs.html">Docs</a> <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></div>
 <h1>Embedding Invariance Report</h1>
 <p class="sub">{n_images} diverse images × {len(results)} encoders × {len(CATEGORIES)} transform groups. Cosine similarity between each transformed embedding and the original — <b>mean-pooled + L2-normalized</b>, so the models are compared like-for-like. Each cell is the raw-pixel mean; the different-image floor tells you how low "low" is.</p>
 ''']
