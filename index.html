@@ -75,6 +75,7 @@ a{color:var(--accent)}
       <option value="Xenova/clip-vit-base-patch32">CLIP ViT-Base (OpenAI, language-contrastive, ~100MB)</option>
       <option value="Xenova/siglip-base-patch16-224">SigLIP Base (Google, language-contrastive, ~370MB)</option>
       <option value="Xenova/dinov2-small">DINOv2 Small (Meta, self-supervised, ~85MB)</option>
+      <option value="gemma4">Gemma 4 Vision (Google, ONNX Runtime, ~112MB)</option>
     </select>
   </div>
 </div>
@@ -142,6 +143,7 @@ a{color:var(--accent)}
 
 <p class="note">Powered by <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js</a> (WebGPU/WASM). Models: <a href="https://huggingface.co/Xenova/clip-vit-base-patch32" target="_blank">CLIP</a> (OpenAI, language-aligned), <a href="https://huggingface.co/Xenova/siglip-base-patch16-224" target="_blank">SigLIP</a> (Google, language-aligned), and <a href="https://huggingface.co/Xenova/dinov2-small" target="_blank">DINOv2</a> (Meta, self-supervised — no language). All computation happens locally. Model files cached via service worker. <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
 
+<script src="gemma4.js"></script>
 <script type="module">
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
 
@@ -226,7 +228,7 @@ async function loadModel() {
   extractor = null;
   currentModel = modelId;
   originalEmbedding = null;
-  const label = modelId.includes('clip') ? 'CLIP' : modelId.includes('siglip') ? 'SigLIP' : 'DINOv2';
+  const label = modelId === 'gemma4' ? 'Gemma 4' : modelId.includes('clip') ? 'CLIP' : modelId.includes('siglip') ? 'SigLIP' : 'DINOv2';
   setStatus(`Loading ${label} vision encoder…`, 'loading');
   resetDownloadUI();
   setDownloadPanel(true);
@@ -350,7 +352,10 @@ function cosineSim(a, b) {
   return dot / (Math.sqrt(magA) * Math.sqrt(magB));
 }
 
-async function getEmbedding(canvas) {
+async function getEmbedding(model, canvas) {
+  if (model === 'gemma4' && window.__gemma4) {
+    return await window.__gemma4.embedGemma4(canvas);
+  }
   const dataURL = canvasToDataURL(canvas);
   const result = await extractor(dataURL);
   // result is nested array — flatten to Float64Array
@@ -371,7 +376,7 @@ $('compare-btn').addEventListener('click', async () => {
       const origCanvas = document.createElement('canvas');
       origCanvas.width = 224; origCanvas.height = 224;
       renderToCanvas(origCanvas, sourceImage, { rotation: 0, crop: 0, scale: 1, flip: 'none' });
-      originalEmbedding = await getEmbedding(origCanvas);
+      originalEmbedding = await getEmbedding(await loadModel(), origCanvas);
     }
 
     // define a set of standard transformations to test
@@ -395,7 +400,7 @@ $('compare-btn').addEventListener('click', async () => {
       const canvas = document.createElement('canvas');
       canvas.width = 224; canvas.height = 224;
       renderToCanvas(canvas, sourceImage, t.params);
-      const emb = await getEmbedding(canvas);
+      const emb = await getEmbedding(await loadModel(), canvas);
       const sim = cosineSim(originalEmbedding, emb);
       results.push({ ...t, thumb: canvasToDataURL(canvas), sim });
     }

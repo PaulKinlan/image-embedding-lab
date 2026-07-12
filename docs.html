@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Docs — Image Embedding Lab</title>
+<style>
+:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff}
+@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:800px;margin:0 auto}
+h1{font-family:Georgia,serif;font-size:1.6rem;font-weight:normal;margin-bottom:.3rem}
+h2{font-family:Georgia,serif;font-size:1.1rem;font-weight:normal;margin:1.5rem 0 .5rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}
+a{color:var(--accent)}
+.back{font-size:.8rem;margin-bottom:1rem;display:inline-block;color:var(--muted)}
+pre{background:var(--bg-secondary);border:1px solid var(--border);border-radius:.4rem;padding:.8rem;overflow-x:auto;font-size:.78rem;margin:.5rem 0}
+code{font-size:.85rem}
+table{width:100%;border-collapse:collapse;margin:1rem 0}
+th,td{padding:.4rem .6rem;text-align:left;font-size:.8rem;border-bottom:1px solid var(--border)}
+th{background:var(--bg-secondary);font-size:.68rem;text-transform:uppercase;color:var(--muted)}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<a class="back" href="index.html">← Back to lab</a>
+<h1>Image Embedding Lab — Docs</h1>
+
+<h2>Models</h2>
+<table>
+<tr><th>Model</th><th>Provider</th><th>Training</th><th>Size</th><th>Dim</th><th>Patch</th></tr>
+<tr><td>CLIP ViT-Base-Patch32</td><td>OpenAI</td><td>Language-contrastive</td><td>~100MB</td><td>512</td><td>32</td></tr>
+<tr><td>SigLIP Base-Patch16-224</td><td>Google</td><td>Language-contrastive (sigmoid)</td><td>~370MB</td><td>768</td><td>16</td></tr>
+<tr><td>DINOv2 Small</td><td>Meta</td><td>Self-supervised</td><td>~85MB</td><td>384</td><td>14</td></tr>
+<tr><td>Gemma 4 Vision</td><td>Google</td><td>VLM vision tower</td><td>~112MB</td><td>768</td><td>16</td></tr>
+</table>
+
+<h2>CLI</h2>
+<pre>npm install
+node cli.mjs &lt;image&gt; [--model clip|siglip|dinov2] [--json]</pre>
+<p>Example:</p>
+<pre>node cli.mjs cat.jpg --model dinov2
+node cli.mjs *.jpg --model clip --json &gt; results.json</pre>
+<p>Output: color-coded bars with per-transformation similarity, plus summary stats (rotation avg, crop avg, flip similarity).</p>
+
+<h2>Gemma 4 Vision Encoder</h2>
+<p>The Gemma 4 vision encoder runs via <a href="https://onnxruntime.ai/docs/tutorials/web/" target="_blank">ONNX Runtime Web</a> (not Transformers.js) because it's a submodel extracted from the Gemma 4 E2B model, not a standalone pipeline model. The quantized (4-bit) ONNX build is only 112MB.</p>
+<p>Loaded directly from <a href="https://huggingface.co/onnx-community/gemma-4-E2B-it-ONNX/tree/main/onnx" target="_blank">onnx-community/gemma-4-E2B-it-ONNX</a>. Image preprocessing: resize to 224×224, normalize with mean=0.5/std=0.5 (SigLIP-compatible). Output: 280 soft tokens mean-pooled to 768-dim.</p>
+
+<h2>Service worker</h2>
+<p>Model blobs (~85–370MB) are cached via service worker (Cache API). Network-first for app shell so updates appear immediately. Update detection with reload banner.</p>
+
+<h2>Experiment results</h2>
+<p><a href="report.html">Full report: 15 images × 4 models × 15 transformations</a></p>
+<p><a href="https://github.com/PaulKinlan/image-embedding-lab/blob/master/FINDINGS.md" target="_blank">FINDINGS.md on GitHub</a></p>
+
+<h2>Key finding</h2>
+<p>Patch size is the dominant factor for transformation invariance. CLIP (patch 32) is the most invariant (83% rotation similarity). SigLIP/DINOv2 (patch 16/14) are rotation-sensitive (~30%). No encoder captures true semantic invariance the way text embeddings do.</p>
+
+<p style="margin-top:2rem;font-size:.75rem;color:var(--muted)"><a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a> · <a href="index.html">Lab</a> · <a href="report.html">Report</a></p>
+</body>
+</html>
