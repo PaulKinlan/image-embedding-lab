@@ -69,6 +69,8 @@ async function loadGemma4(progressCb) {
 
   gemma4InputName = gemma4Session.inputNames[0];
   gemma4OutputName = gemma4Session.outputNames[0];
+  console.log('[gemma4] session ready. inputs:', gemma4Session.inputNames,
+    'outputs:', gemma4Session.outputNames);
   return gemma4Session;
 }
 
@@ -116,8 +118,21 @@ async function embedGemma4(canvas) {
   const inputTensor = new ort.Tensor('float32', tensorData, [1, 3, INPUT_SIZE, INPUT_SIZE]);
   const feeds = {};
   feeds[gemma4InputName] = inputTensor;
-  const results = await gemma4Session.run(feeds);
+  let results;
+  try {
+    results = await gemma4Session.run(feeds);
+  } catch (e) {
+    throw new Error(
+      `Gemma 4 inference failed (input "${gemma4InputName}" shape [1,3,${INPUT_SIZE},${INPUT_SIZE}]): ` +
+        (e && e.message ? e.message : String(e)),
+    );
+  }
   const output = results[gemma4OutputName];
+  if (!output || !output.dims) {
+    throw new Error(
+      `Gemma 4 produced no usable output for "${gemma4OutputName}". Got keys: ${Object.keys(results).join(', ') || '(none)'}`,
+    );
+  }
 
   const dims = output.dims;
   const data = output.data;

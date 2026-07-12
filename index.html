@@ -412,7 +412,7 @@ $('test-btn').addEventListener('click', async () => {
     out.innerHTML = `<strong>This transform:</strong> ${parts.join(' · ')} similarity to the original.`;
   } catch (e) {
     setEmbedProgress(null);
-    out.textContent = 'Error: ' + e.message;
+    out.textContent = 'Error: ' + (e && (e.message || e.toString()) || 'unknown');
   } finally {
     btn.disabled = false;
   }
@@ -508,7 +508,7 @@ $('compare-btn').addEventListener('click', async () => {
   } catch (e) {
     console.error(e);
     setEmbedProgress(null);
-    setStatus('Error: ' + e.message, 'error');
+    setStatus('Error: ' + (e && (e.message || e.toString()) || 'unknown'), 'error');
   } finally {
     btn.disabled = false;
   }
