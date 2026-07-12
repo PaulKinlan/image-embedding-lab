@@ -57,6 +57,7 @@ label.small{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-
     <button data-task="&lt;OCR_WITH_REGION&gt;">OCR + boxes</button>
     <button data-task="&lt;OD&gt;">Detect objects</button>
     <button data-task="&lt;DENSE_REGION_CAPTION&gt;">Describe regions</button>
+    <button data-task="EMBEDDING">Embedding</button>
   </div>
   <div class="stage">
     <div>
@@ -68,12 +69,25 @@ label.small{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-
       <div class="out" id="out"><span class="muted">Pick a task above.</span></div>
     </div>
   </div>
+
+  <div id="simpanel" style="margin-top:1.25rem;padding:1rem;border:1px solid var(--border);border-radius:.5rem;background:var(--bg-secondary)">
+    <label class="small">Image embedding &amp; similarity</label>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:.6rem">The "Embedding" task pools Florence-2's 577 image tokens into one 768-d vector. Drop a second image (B) to compare it with the one above (A) by cosine similarity.</p>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end">
+      <div><div class="small">A (above)</div><canvas id="sparkA" width="280" height="34" style="border:1px solid var(--border);border-radius:.3rem"></canvas></div>
+      <div class="dropzone" id="dropB" style="padding:1rem;flex:0 0 auto;min-width:140px"><p style="margin:0;font-size:.8rem">Drop image B</p><input type="file" id="fileB" accept="image/*"></div>
+      <button id="compareBtn" class="primary">Compare A vs B</button>
+    </div>
+    <div style="margin-top:.5rem"><div class="small">B</div><canvas id="sparkB" width="280" height="34" style="border:1px solid var(--border);border-radius:.3rem"></canvas></div>
+    <div class="out" id="simout" style="margin-top:.6rem"><span class="muted">Cosine similarity shows here.</span></div>
+  </div>
 </div>
 
 <p class="note">Florence-2 is a sequence-to-sequence model: a DaViT vision encoder turns the image into a grid of tokens, and a small language decoder reads those tokens plus a task prompt (like <code>&lt;OCR&gt;</code>) to write the answer. That token-reading step is why it can transcribe a page a fixed-resolution embedding model cannot. First run downloads ~0.35&nbsp;GB (cached afterwards). Model: <a href="https://huggingface.co/onnx-community/Florence-2-base-ft" target="_blank">Florence-2-base-ft</a>.</p>
 
 <script type="module">
 import { Florence2ForConditionalGeneration, AutoProcessor, AutoTokenizer, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+import { poolEmbedding, cosineSim } from './lib/experiment.mjs';
 
 const $ = (id) => document.getElementById(id);
 const MODEL_ID = 'onnx-community/Florence-2-base-ft';
@@ -200,7 +214,80 @@ function label(ctx, txt, x, y) {
 }
 
 function setTasksDisabled(v) { $('tasks').querySelectorAll('button').forEach((b) => (b.disabled = v)); }
-$('tasks').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => run(b.dataset.task)));
+
+// --- embeddings: pull Florence-2's vision embedding (encode_image → 577 tokens → mean-pool 768) ---
+let rawImageB = null;
+
+async function embedImage(rawImg) {
+  await loadModel();
+  const vin = await processor(rawImg);
+  const feats = await model.encode_image({ pixel_values: vin.pixel_values });
+  return poolEmbedding(feats.data, feats.dims); // mean-pool 577 tokens → 768-d, L2-normalized
+}
+
+async function showEmbedding() {
+  setTasksDisabled(true);
+  $('out').innerHTML = '<span class="muted">Encoding…</span>';
+  try {
+    const e = await embedImage(rawImage);
+    drawSpark('sparkA', e);
+    $('out').textContent = `Florence-2 image embedding\n${e.length}-dim vector, L2 norm 1.00 ` +
+      `(mean-pooled from 577 vision tokens).\nFirst values: [${Array.from(e.slice(0, 6)).map((x) => x.toFixed(3)).join(', ')} …]`;
+    setStatus(`Embedded (${backend.toUpperCase()}).`);
+  } catch (e) {
+    $('out').textContent = 'Error: ' + (e && (e.message || e.toString()) || 'unknown');
+    setStatus('Error — see output.', true);
+  } finally {
+    setTasksDisabled(false);
+  }
+}
+
+function drawSpark(id, vec) {
+  const c = $(id), ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  const n = vec.length, bw = c.width / n, mid = c.height / 2;
+  let max = 0;
+  for (const v of vec) max = Math.max(max, Math.abs(v));
+  max = max || 1;
+  ctx.fillStyle = (getComputedStyle(document.body).getPropertyValue('--accent') || '#4b3aff').trim();
+  for (let i = 0; i < n; i++) {
+    const h = (vec[i] / max) * (mid - 1);
+    ctx.fillRect(i * bw, h >= 0 ? mid - h : mid, Math.max(0.6, bw), Math.abs(h));
+  }
+}
+
+const dropB = $('dropB'), fileB = $('fileB');
+async function setB(file) {
+  if (!file) return;
+  rawImageB = await RawImage.fromBlob(file);
+  $('simout').innerHTML = '<span class="muted">Image B ready — hit Compare.</span>';
+}
+dropB.addEventListener('click', () => fileB.click());
+dropB.addEventListener('dragover', (e) => { e.preventDefault(); dropB.classList.add('over'); });
+dropB.addEventListener('dragleave', () => dropB.classList.remove('over'));
+dropB.addEventListener('drop', (e) => { e.preventDefault(); dropB.classList.remove('over'); setB(e.dataTransfer.files[0]); });
+fileB.addEventListener('change', (e) => setB(e.target.files[0]));
+
+$('compareBtn').addEventListener('click', async () => {
+  if (!rawImage) return;
+  if (!rawImageB) { $('simout').innerHTML = '<span class="muted">Drop an image B first.</span>'; return; }
+  $('compareBtn').disabled = true;
+  $('simout').innerHTML = '<span class="muted">Embedding both…</span>';
+  try {
+    const a = await embedImage(rawImage); drawSpark('sparkA', a);
+    const b = await embedImage(rawImageB); drawSpark('sparkB', b);
+    const sim = Math.round(cosineSim(a, b) * 100);
+    $('simout').innerHTML = `<b style="font-size:1.5rem">${sim}%</b> cosine similarity (Florence-2 image embedding).`;
+  } catch (e) {
+    $('simout').textContent = 'Error: ' + (e && (e.message || e.toString()) || 'unknown');
+  } finally {
+    $('compareBtn').disabled = false;
+  }
+});
+
+$('tasks').querySelectorAll('button').forEach((b) =>
+  b.addEventListener('click', () => (b.dataset.task === 'EMBEDDING' ? showEmbedding() : run(b.dataset.task)))
+);
 </script>
 </body>
 </html>
