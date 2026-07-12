@@ -63,6 +63,15 @@ async function loadGemma4(progressCb) {
         data: new Uint8Array(dataBuf),
       }],
     });
+  } catch (e) {
+    // ORT-Web throws a raw number (a WASM exception pointer) on abort — turn it into something
+    // a human (on mobile, with no console) can read.
+    const code = (e && e.message) ? e.message : String(e);
+    throw new Error(
+      `Gemma 4 failed to initialize in ONNX Runtime (WASM error ${code}). The standalone q4 ` +
+        `vision submodel likely uses an op the WASM build doesn't support, or its external-data ` +
+        `reference doesn't match. Gemma 4 is experimental here; CLIP / SigLIP / DINOv2 work.`,
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
