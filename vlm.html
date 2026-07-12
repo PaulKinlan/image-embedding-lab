@@ -34,6 +34,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .out .muted{color:var(--muted)}
 .note{font-size:.75rem;color:var(--muted);margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);line-height:1.6}
 label.small{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:.2rem}
+.corpus{display:flex;gap:.5rem;margin:.8rem 0;align-items:flex-start}
+.corpus>span{align-self:center;white-space:nowrap}
+.thumbs{display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.3rem;flex:1}
+.thumb{flex:0 0 auto;width:58px;cursor:pointer;border:1px solid var(--border);border-radius:.35rem;overflow:hidden;background:var(--bg-secondary);position:relative}
+.thumb img{width:58px;height:44px;object-fit:cover;display:block}
+.thumb .nm{font-size:.54rem;color:var(--muted);padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thumb .asb{position:absolute;top:2px;right:2px;font-size:.55rem;line-height:1;background:var(--accent);color:#fff;border:0;border-radius:3px;padding:1px 3px;cursor:pointer}
+.thumb:hover{border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -44,6 +52,11 @@ label.small{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-
 <div class="dropzone" id="dropzone">
   <p>Drop an image here, or click to choose</p>
   <input type="file" id="file" accept="image/*">
+</div>
+
+<div class="corpus" id="corpus" style="display:none">
+  <span class="small">Examples (click = A, →B loads as B):</span>
+  <div class="thumbs" id="thumbs"></div>
 </div>
 
 <div class="status" id="status"></div>
@@ -81,13 +94,20 @@ label.small{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-
     <div style="margin-top:.5rem"><div class="small">B</div><canvas id="sparkB" width="280" height="34" style="border:1px solid var(--border);border-radius:.3rem"></canvas></div>
     <div class="out" id="simout" style="margin-top:.6rem"><span class="muted">Cosine similarity shows here.</span></div>
   </div>
+
+  <div id="rotpanel" style="margin-top:1.25rem;padding:1rem;border:1px solid var(--border);border-radius:.5rem;background:var(--bg-secondary)">
+    <label class="small">Rotation invariance (image A)</label>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem">Embed A rotated by several angles and compare each to upright (cosine). Shows how far Florence-2's embedding moves under rotation — the same test as the embedding lab, on a VLM's encoder.</p>
+    <button id="rotBtn" class="primary">Run rotation test on A</button>
+    <div class="out" id="rotout" style="margin-top:.6rem"><span class="muted">Results show here.</span></div>
+  </div>
 </div>
 
 <p class="note">Florence-2 is a sequence-to-sequence model: a DaViT vision encoder turns the image into a grid of tokens, and a small language decoder reads those tokens plus a task prompt (like <code>&lt;OCR&gt;</code>) to write the answer. That token-reading step is why it can transcribe a page a fixed-resolution embedding model cannot. First run downloads ~0.35&nbsp;GB (cached afterwards). Model: <a href="https://huggingface.co/onnx-community/Florence-2-base-ft" target="_blank">Florence-2-base-ft</a>.</p>
 
 <script type="module">
 import { Florence2ForConditionalGeneration, AutoProcessor, AutoTokenizer, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
-import { poolEmbedding, cosineSim } from './lib/experiment.mjs';
+import { poolEmbedding, cosineSim, renderTransform as coreRender } from './lib/experiment.mjs';
 
 const $ = (id) => document.getElementById(id);
 const MODEL_ID = 'onnx-community/Florence-2-base-ft';
@@ -310,6 +330,79 @@ $('compareBtn').addEventListener('click', async () => {
     $('simout').textContent = errorDetail(e);
   } finally {
     $('compareBtn').disabled = false;
+  }
+});
+
+// --- corpus quick-pick ---
+function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+
+async function loadA(url) {
+  imageEl = new Image();
+  await new Promise((res, rej) => { imageEl.onload = res; imageEl.onerror = rej; imageEl.src = url; });
+  rawImage = await RawImage.fromURL(url);
+  $('app').style.display = 'block';
+  drawImage();
+  $('out').innerHTML = '<span class="muted">Loaded. Pick a task above.</span>';
+}
+async function loadB(url) {
+  rawImageB = await RawImage.fromURL(url);
+  $('app').style.display = 'block';
+  $('simout').innerHTML = '<span class="muted">Image B ready — hit Compare A vs B.</span>';
+}
+
+async function loadCorpus() {
+  try {
+    const list = await (await fetch('test-images/manifest.json')).json();
+    $('thumbs').replaceChildren(...list.map((name) => {
+      const url = 'test-images/' + name;
+      const d = document.createElement('div'); d.className = 'thumb'; d.title = name;
+      const img = document.createElement('img'); img.src = url; img.alt = name; img.loading = 'lazy';
+      const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = name.replace(/\.(png|jpe?g)$/i, '');
+      const b = document.createElement('button'); b.className = 'asb'; b.textContent = 'B'; b.title = 'Load as image B';
+      d.addEventListener('click', () => loadA(url));
+      b.addEventListener('click', (e) => { e.stopPropagation(); loadB(url); });
+      d.append(img, nm, b);
+      return d;
+    }));
+    $('corpus').style.display = 'flex';
+  } catch (e) { console.warn('corpus manifest failed', e); }
+}
+loadCorpus();
+
+// --- rotation invariance of Florence-2's embedding ---
+const ROTS = [0, 45, 90, 135, 180, 270];
+async function embedRendered(deg) {
+  const size = 768;
+  const c = mkCanvas(size, size);
+  coreRender(c.getContext('2d'), imageEl, { rotation: deg }, size);
+  const { data, width, height } = c.getContext('2d').getImageData(0, 0, size, size);
+  const vin = await processor(new RawImage(data, width, height, 4));
+  const feats = await model.encode_image({ pixel_values: vin.pixel_values });
+  return poolEmbedding(feats.data, feats.dims);
+}
+$('rotBtn').addEventListener('click', async () => {
+  if (!imageEl) { $('rotout').innerHTML = '<span class="muted">Load an image A first (drop one or click an example).</span>'; return; }
+  const btn = $('rotBtn'); btn.disabled = true;
+  $('rotout').innerHTML = '<span class="muted">Embedding rotations…</span>';
+  try {
+    await loadModel();
+    const base = await embedRendered(0);
+    const rows = [];
+    for (const deg of ROTS) {
+      const pct = deg === 0 ? 100 : Math.round(cosineSim(base, await embedRendered(deg)) * 100);
+      rows.push({ deg, pct });
+      $('rotout').textContent = 'Embedding rotations… ' + rows.map((r) => `${r.deg}°`).join(' ');
+    }
+    $('rotout').innerHTML = rows.map((r) => {
+      const col = r.pct >= 90 ? 'var(--good)' : r.pct >= 70 ? '#e6a700' : 'var(--bad)';
+      return `<div style="display:flex;align-items:center;gap:.5rem;margin:.15rem 0"><span style="width:2.4rem">${r.deg}°</span>` +
+        `<span style="width:2.6rem;text-align:right;color:${col};font-weight:700">${r.pct}%</span>` +
+        `<div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden"><div style="width:${r.pct}%;height:100%;background:${col}"></div></div></div>`;
+    }).join('') + '<div style="font-size:.72rem;color:var(--muted);margin-top:.3rem">Cosine of each rotation vs upright, Florence-2 image embedding.</div>';
+  } catch (e) {
+    $('rotout').textContent = errorDetail(e);
+  } finally {
+    btn.disabled = false;
   }
 });
 
