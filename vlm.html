@@ -19,9 +19,21 @@ h1{font-family:Georgia,serif;font-size:1.7rem;font-weight:normal;margin-bottom:.
 .dropzone input{display:none}
 .status{font-size:.82rem;color:var(--muted);margin:.8rem 0;min-height:1.2em}
 .status.err{color:var(--bad)}
-.bar{height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;margin:.5rem 0;display:none}
-.bar.show{display:block}
-.bar-fill{height:100%;width:0;background:var(--accent);border-radius:4px;transition:width .2s}
+.dl-panel{display:none;margin:.6rem 0;padding:.7rem .85rem;border:1px solid var(--border);border-radius:.5rem;background:var(--bg-secondary)}
+.dl-panel.show{display:block}
+.dl-overall{display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:.4rem}
+.dl-overall b{color:var(--color)}
+.dl-overall span{color:var(--muted);font-variant-numeric:tabular-nums}
+.dl-obar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:.6rem}
+.dl-obar-fill{height:100%;width:0;background:var(--accent);border-radius:4px;transition:width .2s}
+.dl-file{font-size:.7rem;color:var(--muted);margin:.35rem 0}
+.dl-file .dl-row{display:flex;justify-content:space-between;gap:.5rem}
+.dl-file .dl-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl-file .dl-fbar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:2px}
+.dl-file .dl-fbar-fill{height:100%;width:0;background:var(--accent);border-radius:2px;transition:width .2s}
+.dl-file.done .dl-nm::before{content:'✓ ';color:var(--good)}
+.errbox{display:none;margin:.6rem 0;padding:.8rem;border:1px solid var(--bad);border-radius:.5rem;background:color-mix(in srgb,var(--bad) 9%,transparent);color:var(--bad);font-size:.82rem;white-space:pre-wrap;word-break:break-word;line-height:1.5}
+.errbox.show{display:block}
 .stage{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
 @media(max-width:640px){.stage{grid-template-columns:1fr}}
 .canvas-wrap{position:relative;border:1px solid var(--border);border-radius:.4rem;overflow:hidden;background:var(--bg-secondary);min-height:120px}
@@ -60,7 +72,6 @@ label.small{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-
 </div>
 
 <div class="status" id="status"></div>
-<div class="bar" id="bar"><div class="bar-fill" id="barfill"></div></div>
 
 <div id="app" style="display:none">
   <div class="tasks" id="tasks">
@@ -72,6 +83,14 @@ label.small{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-
     <button data-task="&lt;DENSE_REGION_CAPTION&gt;">Describe regions</button>
     <button data-task="EMBEDDING">Embedding</button>
   </div>
+
+  <div class="dl-panel" id="dl-panel">
+    <div class="dl-overall"><b id="dl-title">Downloading model…</b><span id="dl-pct"></span></div>
+    <div class="dl-obar"><div class="dl-obar-fill" id="dl-obar-fill"></div></div>
+    <div id="dl-files"></div>
+  </div>
+  <div class="errbox" id="err"></div>
+
   <div class="stage">
     <div>
       <label class="small">Image</label>
@@ -115,48 +134,58 @@ let model = null, processor = null, tokenizer = null, backend = 'wasm';
 let rawImage = null, imageEl = null;
 
 function setStatus(t, err) { const s = $('status'); s.textContent = t; s.className = 'status' + (err ? ' err' : ''); }
-function setBar(pct) { const b = $('bar'); if (pct == null) { b.classList.remove('show'); return; } b.classList.add('show'); $('barfill').style.width = pct + '%'; }
+function showError(msg) { const e = $('err'); e.textContent = msg; e.classList.add('show'); }
+function clearError() { const e = $('err'); e.classList.remove('show'); e.textContent = ''; }
+function showDownload(v) { $('dl-panel').classList.toggle('show', v); }
 
 const dl = new Map();
-function barPct() {
-  let l = 0, t = 0;
-  for (const v of dl.values()) { l += v.loaded; t += v.total; }
-  return t ? Math.round((l / t) * 100) : 0;
-}
 function fmtMB(b) { return (b / 1048576).toFixed(0) + ' MB'; }
-function dlTotals() {
-  let l = 0, t = 0;
-  for (const v of dl.values()) { l += v.loaded; t += v.total; }
-  return { l, t };
-}
-function progress_callback(d) {
-  const f = d.file || d.name;
-  if (d.status === 'progress' && f) dl.set(f, { loaded: d.loaded || 0, total: d.total || 0 });
-  else if (d.status === 'done' && f && dl.has(f)) dl.get(f).loaded = dl.get(f).total;
+function dlTotals() { let l = 0, t = 0; for (const v of dl.values()) { l += v.loaded; t += v.total; } return { l, t }; }
+function barPct() { const { l, t } = dlTotals(); return t ? Math.round((l / t) * 100) : 0; }
+
+// One progress bar per file, plus an overall bar — several files download at once.
+function renderDownload() {
   const { l, t } = dlTotals();
-  setBar(t ? Math.round((l / t) * 100) : 0);
-  if (t) setStatus(`Downloading model… ${Math.round((l / t) * 100)}% (${fmtMB(l)} / ${fmtMB(t)}, ${dl.size} files)`);
+  const pct = t ? Math.round((l / t) * 100) : 0;
+  $('dl-pct').textContent = t ? `${pct}% · ${fmtMB(l)} / ${fmtMB(t)} · ${dl.size} files` : '';
+  $('dl-obar-fill').style.width = pct + '%';
+  const rows = [];
+  for (const [name, v] of dl) {
+    const p = v.total ? Math.round((v.loaded / v.total) * 100) : 0;
+    const done = v.total > 0 && v.loaded >= v.total;
+    const short = name.replace(/^onnx\//, '').replace(/^\.\//, '');
+    rows.push(`<div class="dl-file ${done ? 'done' : ''}"><div class="dl-row"><span class="dl-nm">${short}</span><span>${fmtMB(v.loaded)} / ${fmtMB(v.total)}</span></div><div class="dl-fbar"><div class="dl-fbar-fill" style="width:${p}%"></div></div></div>`);
+  }
+  $('dl-files').innerHTML = rows.join('');
 }
 
-// Turn any thrown value into a self-explanatory on-page message (no console needed).
-function errorDetail(e) {
-  const name = e && e.name ? e.name : 'Error';
-  const msg = e && e.message ? e.message : String(e);
-  const network = /fetch|network|load|Failed to|ERR_|timeout|connection|aborted|abort|ECONN|dns|Load model/i.test(msg);
-  let out = `${name}: ${msg}`;
-  if (network) {
-    const { t } = dlTotals();
-    out += `\n\nThis looks like a network / download problem. The model is ~0.35 GB, and on a weak or dropping connection the download can fail partway. Good news: finished files are cached, so just tap the task again to resume — it picks up where it left off. Try once or twice more, ideally on stronger signal or Wi-Fi.`;
-    if (t) out += `\n\nGot to ${barPct()}% (${fmtMB(dlTotals().l)} of ${fmtMB(t)}) across ${dl.size} files before it stopped.`;
+function progress_callback(d) {
+  const f = d.file || d.name;
+  if (f && (d.status === 'progress' || d.status === 'download' || d.status === 'initiate')) {
+    const cur = dl.get(f) || { loaded: 0, total: 0 };
+    dl.set(f, { loaded: d.loaded ?? cur.loaded, total: d.total ?? cur.total });
+  } else if (d.status === 'done' && f && dl.has(f)) {
+    dl.get(f).loaded = dl.get(f).total;
   }
-  if (e && e.stack) out += `\n\n— technical —\n${String(e.stack).split('\n').slice(0, 3).join('\n')}`;
+  renderDownload();
+}
+
+function errorDetail(e) {
+  const name = (e && e.name) || 'Error';
+  const msg = (e && e.message) || String(e);
+  let out = `${name}: ${msg}`;
+  if (/fetch|network|Failed to|ERR_|timeout|connection|abort|ECONN|dns/i.test(msg)) {
+    const { l, t } = dlTotals();
+    out += `\ndownload failed at ${barPct()}% (${fmtMB(l)}/${fmtMB(t)}, ${dl.size} files). cached files persist; re-run to resume.`;
+  }
+  if (e && e.stack) out += `\n${String(e.stack).split('\n').slice(0, 4).join('\n')}`;
   return out;
 }
 
 async function loadModel() {
   if (model) return;
   setStatus('Loading Florence-2 (first time downloads ~0.35 GB)…');
-  setBar(0);
+  showDownload(true);
   try {
     model = await Florence2ForConditionalGeneration.from_pretrained(MODEL_ID, {
       dtype: { embed_tokens: 'fp16', vision_encoder: 'fp16', encoder_model: 'q4', decoder_model_merged: 'q4' },
@@ -174,7 +203,7 @@ async function loadModel() {
   }
   processor = await AutoProcessor.from_pretrained(MODEL_ID);
   tokenizer = await AutoTokenizer.from_pretrained(MODEL_ID);
-  setBar(null);
+  showDownload(false);
   setStatus(`Florence-2 loaded (${backend.toUpperCase()}).`);
 }
 
@@ -208,7 +237,8 @@ fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
 async function run(task) {
   if (!rawImage) return;
   setTasksDisabled(true);
-  $('out').innerHTML = '<span class="muted">Running…</span>';
+  clearError();
+    $('out').innerHTML = '<span class="muted">Running…</span>';
   try {
     await loadModel();
     setStatus(`Running ${task} (${backend.toUpperCase()})…`);
@@ -222,8 +252,9 @@ async function run(task) {
     setStatus(`Done (${backend.toUpperCase()}).`);
   } catch (e) {
     console.error(e);
-    $('out').textContent = errorDetail(e);
-    setStatus('Failed — full details in the output panel below.', true);
+    showError(errorDetail(e));
+    $('out').innerHTML = '<span class="muted">Failed — see the error above.</span>';
+    setStatus('Failed.', true);
   } finally {
     setTasksDisabled(false);
   }
@@ -273,7 +304,8 @@ async function embedImage(rawImg) {
 
 async function showEmbedding() {
   setTasksDisabled(true);
-  $('out').innerHTML = '<span class="muted">Encoding…</span>';
+  clearError();
+    $('out').innerHTML = '<span class="muted">Encoding…</span>';
   try {
     const e = await embedImage(rawImage);
     drawSpark('sparkA', e);
@@ -282,8 +314,9 @@ async function showEmbedding() {
     setStatus(`Embedded (${backend.toUpperCase()}).`);
   } catch (e) {
     console.error(e);
-    $('out').textContent = errorDetail(e);
-    setStatus('Failed — full details in the output panel below.', true);
+    showError(errorDetail(e));
+    $('out').innerHTML = '<span class="muted">Failed — see the error above.</span>';
+    setStatus('Failed.', true);
   } finally {
     setTasksDisabled(false);
   }
@@ -319,7 +352,8 @@ $('compareBtn').addEventListener('click', async () => {
   if (!rawImage) return;
   if (!rawImageB) { $('simout').innerHTML = '<span class="muted">Drop an image B first.</span>'; return; }
   $('compareBtn').disabled = true;
-  $('simout').innerHTML = '<span class="muted">Embedding both…</span>';
+  clearError();
+    $('simout').innerHTML = '<span class="muted">Embedding both…</span>';
   try {
     const a = await embedImage(rawImage); drawSpark('sparkA', a);
     const b = await embedImage(rawImageB); drawSpark('sparkB', b);
@@ -327,7 +361,8 @@ $('compareBtn').addEventListener('click', async () => {
     $('simout').innerHTML = `<b style="font-size:1.5rem">${sim}%</b> cosine similarity (Florence-2 image embedding).`;
   } catch (e) {
     console.error(e);
-    $('simout').textContent = errorDetail(e);
+    showError(errorDetail(e));
+    $('simout').innerHTML = '<span class="muted">Failed — see the error above.</span>';
   } finally {
     $('compareBtn').disabled = false;
   }
@@ -383,7 +418,8 @@ async function embedRendered(deg) {
 $('rotBtn').addEventListener('click', async () => {
   if (!imageEl) { $('rotout').innerHTML = '<span class="muted">Load an image A first (drop one or click an example).</span>'; return; }
   const btn = $('rotBtn'); btn.disabled = true;
-  $('rotout').innerHTML = '<span class="muted">Embedding rotations…</span>';
+  clearError();
+    $('rotout').innerHTML = '<span class="muted">Embedding rotations…</span>';
   try {
     await loadModel();
     const base = await embedRendered(0);
@@ -400,7 +436,9 @@ $('rotBtn').addEventListener('click', async () => {
         `<div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden"><div style="width:${r.pct}%;height:100%;background:${col}"></div></div></div>`;
     }).join('') + '<div style="font-size:.72rem;color:var(--muted);margin-top:.3rem">Cosine of each rotation vs upright, Florence-2 image embedding.</div>';
   } catch (e) {
-    $('rotout').textContent = errorDetail(e);
+    console.error(e);
+    showError(errorDetail(e));
+    $('rotout').innerHTML = '<span class="muted">Failed — see the error above.</span>';
   } finally {
     btn.disabled = false;
   }
