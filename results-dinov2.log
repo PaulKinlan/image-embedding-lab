@@ -1,0 +1,24 @@
+Loading DINOV2 (Xenova/dinov2-small)…
+dtype not specified for "model". Using the default dtype (fp32) for this device (cpu).
+DINOV2 loaded.
+
+Processing: test-images/abstract.jpg
+  Image: 400×400
+Processing: test-images/architecture.jpg
+  Image: 400×400
+Processing: test-images/city.jpg
+  Image: 400×400
+Processing: test-images/food.jpg
+  Image: 400×400
+Processing: test-images/forest.jpg
+  Image: 400×400
+Processing: test-images/landscape.jpg
+  Image: 400×400
+Processing: test-images/nature.jpg
+  Image: 400×400
+Processing: test-images/ocean.jpg
+  Image: 400×400
+Processing: test-images/people.jpg
+  Image: 400×400
+Processing: test-images/portrait.jpg
+  Image: 400×400
