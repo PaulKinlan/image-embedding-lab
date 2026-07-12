@@ -453,9 +453,38 @@ $('model-select').addEventListener('change', () => {
   $('legend').innerHTML = '';
 });
 
-// register service worker for model caching
+// register service worker for model caching + update detection
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener('statechange', () => {
+        // A new SW has been installed and a previous one is controlling the page
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          showUpdateBanner();
+        }
+      });
+    });
+    // check for updates every 5 min
+    setInterval(() => reg.update().catch(() => {}), 300000);
+  }).catch(() => {});
+  // if the controller changed (new SW took over), reload once
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+}
+
+function showUpdateBanner() {
+  if (document.getElementById('update-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'update-banner';
+  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--accent);color:#fff;padding:.7rem 1rem;display:flex;justify-content:center;align-items:center;gap:1rem;z-index:1000;font-size:.82rem';
+  banner.innerHTML = '<span>New version available</span><button onclick="location.reload()" style="background:#fff;color:var(--accent);border:none;padding:.3rem .8rem;border-radius:.3rem;cursor:pointer;font:inherit;font-weight:700">Reload</button><button onclick="this.parentElement.remove()" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);padding:.3rem .5rem;border-radius:.3rem;cursor:pointer;font:inherit">Later</button>';
+  document.body.appendChild(banner);
 }
 </script>
 </body>
