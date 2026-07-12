@@ -1,49 +1,83 @@
 # Findings: Image Embedding Transformation Invariance
 
-## Experiment
+## Method
 
-10 diverse images × 3 models (CLIP, SigLIP, DINOv2) × 15 transformations (rotations, crops, scales, flips, combined). Cosine similarity between each transformed embedding and the original.
+15 images × 3 encoders (CLIP ViT-B/32, SigLIP B/16, DINOv2-S) × 20 transforms (rotations, crops,
+scales, flips, translate, grayscale, brightness, blur, occlusion, combined). For each transform
+we take the cosine similarity between its embedding and the original's.
 
-## Summary
+Three things make these numbers trustworthy where an earlier version's were not:
 
-| Transformation | CLIP (patch 32) | SigLIP (patch 16) | DINOv2 (patch 14) |
+1. **Embeddings are mean-pooled, then L2-normalized.** `image-feature-extraction` returns
+   different shapes per model — CLIP `[1, 512]` (already pooled) but SigLIP `[1, 196, 768]` and
+   DINOv2 `[1, 257, 384]` (raw, unpooled patch-token grids). Comparing a flattened patch grid
+   means a rotation just moves each patch to a different index and cosine collapses — and more
+   patches (smaller patch) collapses harder. That single asymmetry produced the earlier
+   "patch size is the dominant factor" conclusion. It was an artifact. Pooling to one vector per
+   image fixes it.
+2. **Every transform is embedded twice** — from raw pixels and after a JPEG round-trip (q0.9) —
+   so compression noise is separated from the transform's real effect.
+3. **A different-image baseline "floor"** (cosine between unrelated images) is reported per
+   model, because a raw similarity is meaningless without knowing how low "unrelated" is.
+
+## Results (raw-pixel mean % across 15 images)
+
+| Transform | CLIP (B/32) | SigLIP (B/16) | DINOv2 (S) |
 |---|---|---|---|
-| Rotation (90°/180°/270°) | 83% | 26% | 39% |
-| Slight rotation (15°/45°) | 79% | 37% | 40% |
-| Crop (20%/35%) | 81% | 30% | 49% |
-| Scale (80%/120%) | 85% | 65% | 76% |
-| Flip horizontal | 94% | 39% | 65% |
-| Flip vertical | 86% | 48% | 56% |
+| Rotation 90/180/270 | 85 | 85 | 72 |
+| Rotation 15/45 | 84 | 88 | 79 |
+| Crop 20/35 | 81 | 83 | 81 |
+| Scale 80/120 | 88 | 93 | 93 |
+| Flip horizontal | 95 | 94 | 97 |
+| Flip vertical | 86 | 85 | 81 |
+| Grayscale | 91 | 96 | 97 |
+| Brightness ±30% | 94 | 97 | 99 |
+| Blur | 82 | 80 | 85 |
+| Occlude 25% | 93 | 96 | 96 |
+| **Different-image floor** | **58** | **52** | **15** |
 
-## Key findings
+## Key findings (these replace the earlier report)
 
-1. **CLIP is the most transformation-invariant encoder.** Despite being the oldest model (2021), CLIP's ViT-Base-Patch32 produces embeddings that are surprisingly robust to rotation, cropping, and scaling. The key factor: large patch size (32×32) coarsens the spatial representation, making it less sensitive to pixel-level rearrangement.
+1. **"Patch size is the dominant factor" was an artifact — it is gone.** With embeddings pooled,
+   SigLIP (patch-16) matches CLIP (patch-32) on rotation (both 85%), and DINOv2 (patch-14) is
+   72% — not the ~30–39% the earlier run reported. Patch size does not rank the encoders.
 
-2. **SigLIP and DINOv2 are rotation-sensitive.** Both use smaller patches (16×16 / 14×14) which preserve fine spatial detail — but that detail IS affected by rotation. A 90° turn completely rewrites the patch grid.
+2. **The baseline changes the whole comparison.** The floors are wildly different: CLIP 58%,
+   SigLIP 52%, DINOv2 15%. So CLIP's high absolute scores are partly just a compressed embedding
+   space — two *unrelated* images already sit at 58%. Normalize each score to its own floor,
+   `(sim − floor) / (100 − floor)`, and rotation robustness is:
+   - CLIP: (85−58)/42 = **64%**
+   - SigLIP: (85−52)/48 = **69%**
+   - DINOv2: (72−15)/85 = **67%**
+   All three are comparable. The earlier "CLIP is the most transformation-invariant encoder"
+   claim does not survive once you account for how spread out each model's space is. If anything,
+   DINOv2's low floor means its similarities carry more information per point.
 
-3. **Horizontal flips are nearly free for CLIP.** CLIP achieves 98-100% similarity on horizontal flips across all images. DINOv2 ranges 46-88%. SigLIP is 33-68%.
+3. **JPEG compression is negligible at q0.9.** Mean |raw − jpeg| across all transforms is 1.4
+   points for CLIP and 0.4 for SigLIP/DINOv2. Compression is not what these numbers measure —
+   but now that's shown, not assumed. (The earlier browser embedded JPEG-encoded canvases while
+   the CLI used raw pixels; that mismatch is removed — both now do both.)
 
-4. **None of these encoders capture "semantic invariance."** Unlike text embeddings — where paraphrases with zero shared tokens produce nearly identical vectors — no image encoder treats a rotated image as "the same image." A 90° rotation is a fundamentally different input to a ViT because positional embeddings are absolute.
+4. **Rotation is still the hardest geometric transform, but not catastrophic.** 72–85% raw,
+   comfortably above every floor. The ViT positional-embedding intuition (a 90° turn is a
+   genuinely different input) holds directionally — it just costs ~15–28 points, not ~60.
 
-5. **Patch size is the dominant factor.** CLIP (patch 32) > SigLIP (patch 16) ≈ DINOv2 (patch 14) for every transformation category. Larger patches = coarser spatial representation = more invariant.
+5. **Photometric transforms are nearly free.** Grayscale, brightness, occlusion, and blur all sit
+   in the high 80s–90s for every model. These encoders care about content layout far more than
+   exact pixels.
 
-## Why image embeddings ≠ text embeddings
+## What still holds from the original write-up
+- No encoder is *fully* transformation-invariant; a rotated image is not treated as identical.
+- Image encoders lack the paraphrase signal text encoders get, so there's no learned
+  "a rotated image means the same thing." That framing is right; only the magnitudes were wrong.
 
-With text, "the cat sat on the mat" and "a feline rested on a rug" produce similar embeddings because the model captures MEANING, not surface form. Text training data has natural paraphrase — the same concept expressed many different ways.
+## Honest caveats
+- Rotation/scale are rendered on a mid-gray square (gray ≈ 0 after normalization, so the
+  letterbox contributes little), but a non-square image still changes its image-vs-background
+  ratio under rotation. Some residual confound remains.
+- Comparing patch size *per se* still needs a within-family ablation (CLIP-B/16 vs B/32); three
+  models differ on training, resolution, and objective at once.
+- Gemma 4 is available in the browser lab (ONNX Runtime) but not in this CLI batch.
 
-Image encoders have NO such training signal for transformations. CLIP is trained on "this image matches this caption" — it's never told "a rotated image is the same image." A 90° rotation completely changes the pixel grid, and the ViT's positional embeddings are tied to absolute spatial location.
-
-This is an active research frontier: equivariant networks, rotation-invariant CNNs, augmentation-aware training. No production vision encoder is fully transformation-invariant yet.
-
-## Practical recommendations
-
-- **Near-duplicate detection** (same image, different resolution/quality): all three models work well
-- **Rotation-robust search** (e.g. scanned documents): only CLIP is viable (86% avg)
-- **Flip-aware deduplication**: CLIP treats horizontal flips as identical (99%). Use DINOv2 if you need to distinguish mirrors (52% avg)
-- **Content-addressable hashing**: no encoder gives true transformation-invariant hashing. Canonicalize images (orient, center-crop) before embedding
-
-## About Gemma 4
-
-Gemma 4 12B Unified is "encoder-free" — images go directly into the LLM backbone without a separate vision tower. Other variants have a separate Gemma4VisionEncoder (patch 16, 768-dim, 16 layers — architecturally SigLIP-derived). A standalone ONNX build exists (112MB quantized) but requires ONNX Runtime Web to load directly, as transformers.js can't load VLM submodels via the standard pipeline API.
-
-Full report: https://paulkinlan.github.io/image-embedding-lab/report.html
+Reproduce: `node cli.mjs test-images/* --model clip|siglip|dinov2 --json`. Interactive:
+https://paulkinlan.github.io/image-embedding-lab/ · report: report.html

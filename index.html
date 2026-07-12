@@ -67,6 +67,7 @@ a{color:var(--accent)}
 <body>
 <h1>Image Embedding Lab</h1>
 <p class="sub">Are image embeddings invariant to rotation, cropping, and scaling? Upload an image and find out. Vision encoders run entirely in your browser — no server, no API key. Model blobs are cached via service worker after first download.</p>
+<p class="sub" style="margin-top:-1rem"><a href="report.html">📊 Batch report</a> &nbsp;·&nbsp; <a href="docs.html">Docs &amp; CLI</a> &nbsp;·&nbsp; <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
 
 <div class="controls" style="margin-bottom:1rem">
   <div class="control-group">
@@ -133,7 +134,13 @@ a{color:var(--accent)}
       <label>&nbsp;</label>
       <button class="secondary" id="reset-btn">Reset</button>
     </div>
+    <div class="control-group">
+      <label>&nbsp;</label>
+      <button class="secondary" id="test-btn">Test this transform</button>
+    </div>
   </div>
+
+  <p id="test-result" class="legend" style="margin:0 0 1rem"></p>
 
   <button id="compare-btn">Compare embeddings</button>
 
@@ -145,14 +152,18 @@ a{color:var(--accent)}
 
 <script src="gemma4.js"></script>
 <script type="module">
-import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+import { pipeline, env, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+import { poolEmbedding, cosineSim as coreCosine, renderTransform as coreRender, TRANSFORMS, SIZE } from './lib/experiment.mjs';
 
 env.allowLocalModels = false;
 
 let extractor = null;
 let currentModel = null;
 let sourceImage = null;
-let originalEmbedding = null;
+let originalEmbedding = null;   // raw-pixel original embedding
+let originalEmbeddingJpeg = null; // jpeg-round-trip original embedding
+let backend = 'wasm';           // 'webgpu' | 'wasm'
+let floorCache = {};            // per-model different-image baseline floor
 
 const $ = (id) => document.getElementById(id);
 const dropzone = $('dropzone');
@@ -215,11 +226,6 @@ function setStatus(text, cls = '') {
   status.textContent = text;
   status.className = 'status show ' + cls;
 }
-function setProgress(pct) {
-  if (pct === null) { progress.classList.remove('show'); return; }
-  progress.classList.add('show');
-  progressBar.style.width = pct + '%';
-}
 
 // --- Model loading ---
 async function loadModel() {
@@ -233,29 +239,49 @@ async function loadModel() {
   resetDownloadUI();
   setDownloadPanel(true);
   $('dl-title').textContent = `Downloading ${label} model files…`;
-  extractor = await pipeline('image-feature-extraction', modelId, {
-    progress_callback: (data) => {
-      const file = data.file || data.name || 'unknown';
-      if (data.status === 'initiate' || data.status === 'download') {
-        if (!dlState.files.has(file)) {
-          dlState.files.set(file, { loaded: 0, total: data.total || 0, done: false, cached: data.status === 'initiate' && data.total ? false : false });
-        }
-        if (data.total) dlState.files.get(file).total = data.total;
-        if (data.status === 'download' && !dlState.files.get(file).total) dlState.files.get(file).cached = true;
-      } else if (data.status === 'progress') {
-        if (!dlState.files.has(file)) dlState.files.set(file, { loaded: 0, total: 0, done: false });
-        const f = dlState.files.get(file);
-        f.loaded = data.loaded || 0;
-        f.total = data.total || f.total;
-        f.cached = false;
-      } else if (data.status === 'done') {
-        if (dlState.files.has(file)) { dlState.files.get(file).done = true; dlState.files.get(file).loaded = dlState.files.get(file).total; }
+
+  const progress_callback = (data) => {
+    const file = data.file || data.name || 'unknown';
+    if (data.status === 'initiate' || data.status === 'download') {
+      if (!dlState.files.has(file)) {
+        dlState.files.set(file, { loaded: 0, total: data.total || 0, done: false, cached: false });
       }
-      updateDownloadUI();
-    },
-  });
+      if (data.total) dlState.files.get(file).total = data.total;
+      if (data.status === 'download' && !dlState.files.get(file).total) dlState.files.get(file).cached = true;
+    } else if (data.status === 'progress') {
+      if (!dlState.files.has(file)) dlState.files.set(file, { loaded: 0, total: 0, done: false });
+      const f = dlState.files.get(file);
+      f.loaded = data.loaded || 0;
+      f.total = data.total || f.total;
+      f.cached = false;
+    } else if (data.status === 'done') {
+      if (dlState.files.has(file)) { dlState.files.get(file).done = true; dlState.files.get(file).loaded = dlState.files.get(file).total; }
+    }
+    updateDownloadUI();
+  };
+
+  // Gemma 4 loads via its own ONNX Runtime path, not the Transformers.js pipeline.
+  if (modelId === 'gemma4') {
+    if (!window.__gemma4) throw new Error('Gemma 4 module failed to load.');
+    await window.__gemma4.loadGemma4(progress_callback);
+    backend = 'wasm';
+    setDownloadPanel(false);
+    setStatus(`${label} loaded (ONNX Runtime · WASM).`, '');
+    setTimeout(() => setStatus(''), 3000);
+    return 'gemma4';
+  }
+
+  // Prefer WebGPU (much faster); fall back to WASM if unavailable.
+  try {
+    extractor = await pipeline('image-feature-extraction', modelId, { device: 'webgpu', progress_callback });
+    backend = 'webgpu';
+  } catch (e) {
+    console.warn('WebGPU unavailable, using WASM:', e?.message || e);
+    extractor = await pipeline('image-feature-extraction', modelId, { progress_callback });
+    backend = 'wasm';
+  }
   setDownloadPanel(false);
-  setStatus(`${label} model loaded and cached for future visits.`, '');
+  setStatus(`${label} loaded (${backend.toUpperCase()}) and cached for future visits.`, '');
   setTimeout(() => setStatus(''), 3000);
   return extractor;
 }
@@ -294,37 +320,23 @@ function getTransformParams() {
   };
 }
 
+// Preview render via the SHARED core, so what you see is exactly what gets measured (same
+// mid-gray background, same math). Params {rotation,crop,scale,flip} map straight onto core p.
 function renderToCanvas(canvas, img, params) {
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, W, H);
-  if (!img) return;
-
-  ctx.save();
-  ctx.translate(W / 2, H / 2);
-  if (params.rotation) ctx.rotate(params.rotation * Math.PI / 180);
-  if (params.flip === 'horizontal') ctx.scale(-1, 1);
-  if (params.flip === 'vertical') ctx.scale(1, -1);
-
-  // crop: source rectangle inset by crop% from each edge
-  const sw = img.naturalWidth * (1 - params.crop * 2);
-  const sh = img.naturalHeight * (1 - params.crop * 2);
-  const sx = img.naturalWidth * params.crop;
-  const sy = img.naturalHeight * params.crop;
-  // draw, fitted to canvas maintaining aspect, then apply scale
-  const aspect = sw / sh;
-  let dw = W * params.scale, dh = W * params.scale;
-  if (aspect > 1) dh = dw / aspect; else dw = dh * aspect;
-  ctx.drawImage(img, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
-  ctx.restore();
+  if (!img) {
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#7f7f7f';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+  coreRender(canvas.getContext('2d'), img, params, canvas.width);
 }
 
 function renderTransform() {
   if (!sourceImage) return;
   const params = getTransformParams();
   // original: no transform
-  renderToCanvas($('original-canvas'), sourceImage, { rotation: 0, crop: 0, scale: 1, flip: 'none' });
+  renderToCanvas($('original-canvas'), sourceImage, {});
   // transformed
   renderToCanvas($('transformed-canvas'), sourceImage, params);
   // update labels
@@ -339,6 +351,31 @@ function renderTransform() {
 $('reset-btn').addEventListener('click', () => {
   $('rotation').value = 0; $('crop').value = 0; $('scale').value = 100; $('flip').value = 'none';
   renderTransform();
+  $('test-result').textContent = '';
+});
+
+// Sliders drive a live comparison: embed the CURRENT transform vs the original and show it.
+$('test-btn').addEventListener('click', async () => {
+  if (!sourceImage) return;
+  const btn = $('test-btn');
+  btn.disabled = true;
+  const out = $('test-result');
+  try {
+    const model = await loadModel();
+    out.textContent = `Embedding (${backend.toUpperCase()})…`;
+    const origCanvas = renderToTmp({});
+    originalEmbedding = await embed(model, origCanvas, false);
+    originalEmbeddingJpeg = await embed(model, origCanvas, true);
+    const p = getTransformParams();
+    const canvas = renderToTmp(p);
+    const raw = Math.round(coreCosine(originalEmbedding, await embed(model, canvas, false)) * 100);
+    const jpeg = Math.round(coreCosine(originalEmbeddingJpeg, await embed(model, canvas, true)) * 100);
+    out.innerHTML = `<strong>This transform:</strong> raw <strong>${raw}%</strong> · jpeg <strong>${jpeg}%</strong> similarity to the original.`;
+  } catch (e) {
+    out.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 // --- Embedding comparison ---
@@ -352,15 +389,41 @@ function cosineSim(a, b) {
   return dot / (Math.sqrt(magA) * Math.sqrt(magB));
 }
 
-async function getEmbedding(model, canvas) {
-  if (model === 'gemma4' && window.__gemma4) {
-    return await window.__gemma4.embedGemma4(canvas);
-  }
-  const dataURL = canvasToDataURL(canvas);
-  const result = await extractor(dataURL);
-  // result is nested array — flatten to Float64Array
-  const flat = result.data || result.tolist()[0];
-  return Float64Array.from(flat);
+// Embed a canvas → ONE pooled, L2-normalized vector (see lib/experiment.mjs poolEmbedding).
+// jpeg=true routes the pixels through a JPEG round-trip (q0.9) so we can measure how much
+// apparent (in)variance is really compression noise vs the transform itself.
+async function embed(model, canvas, jpeg) {
+  let src = canvas;
+  if (jpeg) src = await jpegRoundTrip(canvas);
+  if (model === 'gemma4' && window.__gemma4) return await window.__gemma4.embedGemma4(src);
+  const ctx = src.getContext('2d');
+  const { data, width, height } = ctx.getImageData(0, 0, src.width, src.height);
+  const out = await extractor(new RawImage(data, width, height, 4));
+  return poolEmbedding(out.data, out.dims);
+}
+
+function jpegRoundTrip(canvas) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = canvas.width; c.height = canvas.height;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      resolve(c);
+    };
+    img.src = canvas.toDataURL('image/jpeg', 0.9);
+  });
+}
+
+let lastResults = null;
+
+// Render a transform of the source image into a fresh 224² canvas via the SHARED core, so the
+// browser measures exactly what the CLI measures.
+function renderToTmp(p) {
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE; canvas.height = SIZE;
+  coreRender(canvas.getContext('2d'), sourceImage, p, SIZE);
+  return canvas;
 }
 
 $('compare-btn').addEventListener('click', async () => {
@@ -368,44 +431,25 @@ $('compare-btn').addEventListener('click', async () => {
   const btn = $('compare-btn');
   btn.disabled = true;
   try {
-    await loadModel();
-    setStatus('Computing embeddings…', 'loading');
+    const model = await loadModel();
+    setStatus(`Computing embeddings (${backend.toUpperCase()})…`, 'loading');
 
-    // compute original embedding (cache it)
-    if (!originalEmbedding) {
-      const origCanvas = document.createElement('canvas');
-      origCanvas.width = 224; origCanvas.height = 224;
-      renderToCanvas(origCanvas, sourceImage, { rotation: 0, crop: 0, scale: 1, flip: 'none' });
-      originalEmbedding = await getEmbedding(await loadModel(), origCanvas);
-    }
+    const origCanvas = renderToTmp({});
+    originalEmbedding = await embed(model, origCanvas, false);
+    originalEmbeddingJpeg = await embed(model, origCanvas, true);
 
-    // define a set of standard transformations to test
-    const transforms = [
-      { name: 'Original (identity)', params: { rotation: 0, crop: 0, scale: 1, flip: 'none' }, desc: 'No transformation — should be 1.0' },
-      { name: 'Rotate 90°', params: { rotation: 90, crop: 0, scale: 1, flip: 'none' }, desc: 'Quarter turn' },
-      { name: 'Rotate 180°', params: { rotation: 180, crop: 0, scale: 1, flip: 'none' }, desc: 'Upside down' },
-      { name: 'Rotate 270°', params: { rotation: 270, crop: 0, scale: 1, flip: 'none' }, desc: 'Three-quarter turn' },
-      { name: 'Rotate 15°', params: { rotation: 15, crop: 0, scale: 1, flip: 'none' }, desc: 'Slight tilt' },
-      { name: 'Crop 20%', params: { rotation: 0, crop: 0.2, scale: 1, flip: 'none' }, desc: 'Center crop, 20% from each edge' },
-      { name: 'Crop 35%', params: { rotation: 0, crop: 0.35, scale: 1, flip: 'none' }, desc: 'Tight center crop' },
-      { name: 'Scale 80%', params: { rotation: 0, crop: 0, scale: 0.8, flip: 'none' }, desc: 'Shrunk, same aspect' },
-      { name: 'Scale 120%', params: { rotation: 0, crop: 0, scale: 1.2, flip: 'none' }, desc: 'Enlarged' },
-      { name: 'Flip horizontal', params: { rotation: 0, crop: 0, scale: 1, flip: 'horizontal' }, desc: 'Mirror image' },
-      { name: 'Flip vertical', params: { rotation: 0, crop: 0, scale: 1, flip: 'vertical' }, desc: 'Flipped top-to-bottom' },
-      { name: 'Rotate 90° + crop 20%', params: { rotation: 90, crop: 0.2, scale: 1, flip: 'none' }, desc: 'Combined transform' },
-    ];
-
+    // Every transform embedded twice: raw pixels vs JPEG round-trip.
     const results = [];
-    for (const t of transforms) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 224; canvas.height = 224;
-      renderToCanvas(canvas, sourceImage, t.params);
-      const emb = await getEmbedding(await loadModel(), canvas);
-      const sim = cosineSim(originalEmbedding, emb);
-      results.push({ ...t, thumb: canvasToDataURL(canvas), sim });
+    for (const t of TRANSFORMS) {
+      const canvas = renderToTmp(t.p);
+      const raw = coreCosine(originalEmbedding, await embed(model, canvas, false));
+      const jpeg = coreCosine(originalEmbeddingJpeg, await embed(model, canvas, true));
+      results.push({ name: t.name, thumb: canvas.toDataURL('image/jpeg', 0.9), raw, jpeg });
     }
 
-    renderResults(results);
+    const floor = await computeFloor(model);
+    lastResults = { model, backend, floor, results };
+    renderResults(lastResults);
     setStatus('');
   } catch (e) {
     console.error(e);
@@ -415,45 +459,101 @@ $('compare-btn').addEventListener('click', async () => {
   }
 });
 
-function renderResults(results) {
-  const container = $('results');
-  container.innerHTML = '<h2>Embedding similarity vs original</h2>';
-  for (const r of results) {
-    const pct = Math.round(r.sim * 100);
-    const cls = pct >= 95 ? 'var(--good)' : pct >= 80 ? 'var(--warn)' : 'var(--bad)';
-    const barCls = pct >= 95 ? 'fill-good' : pct >= 80 ? 'fill-warn' : 'fill-bad';
-    container.innerHTML += `
-      <div class="result-row">
-        <img class="result-thumb" src="${r.thumb}" alt="${r.name}">
-        <div class="result-info">
-          <div class="result-name">${r.name}</div>
-          <div class="result-desc">${r.desc}</div>
-        </div>
-        <div class="sim-bar">
-          <div class="sim-val" style="color:${cls}">${pct}%</div>
-          <div class="sim-bar-track"><div class="sim-bar-fill ${barCls}" style="width:${pct}%;background:${cls}"></div></div>
-        </div>
-      </div>`;
+// Different-image baseline floor: average cosine of the user's image vs a few bundled reference
+// images (different content). Answers "how low is low?" — similarities near it mean "as different
+// as an unrelated image". Cached per model.
+const FLOOR_REFS = ['test-images/photo-kitten.jpg', 'test-images/webpage-hn.png', 'test-images/text-readme.png'];
+async function computeFloor(model) {
+  if (floorCache[model] != null) return floorCache[model];
+  try {
+    const sims = [];
+    for (const url of FLOOR_REFS) {
+      const img = await loadImageURL(url);
+      const c = document.createElement('canvas');
+      c.width = SIZE; c.height = SIZE;
+      coreRender(c.getContext('2d'), img, {}, SIZE);
+      sims.push(coreCosine(originalEmbedding, await embed(model, c, false)));
+    }
+    return (floorCache[model] = sims.reduce((a, b) => a + b, 0) / sims.length);
+  } catch (e) {
+    console.warn('baseline floor failed:', e);
+    return null;
   }
-  // add color CSS for bars
-  if (!document.getElementById('bar-css')) {
+}
+function loadImageURL(url) {
+  return new Promise((res, rej) => {
+    const i = new Image();
+    i.crossOrigin = 'anonymous';
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = url;
+  });
+}
+
+function exportResults(data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `embedding-lab-${data.model.replace(/\W+/g, '-')}.json`;
+  a.click();
+}
+
+function renderResults(data) {
+  const { results, floor, backend } = data;
+  const floorPct = floor != null ? Math.round(floor * 100) : null;
+  const col = (p) => (p >= 90 ? 'var(--good)' : p >= 70 ? 'var(--warn)' : 'var(--bad)');
+
+  if (!document.getElementById('res-css')) {
     const style = document.createElement('style');
-    style.id = 'bar-css';
-    style.textContent = '.fill-good{background:var(--good)}.fill-warn{background:var(--warn)}.fill-bad{background:var(--bad)}';
+    style.id = 'res-css';
+    style.textContent =
+      '.result-row{grid-template-columns:70px 1fr 140px}' +
+      '.simcol{display:flex;flex-direction:column;gap:.35rem;min-width:130px}' +
+      '.simrow{display:flex;align-items:center;gap:.4rem;font-size:.72rem}' +
+      '.simrow .tag{color:var(--muted);text-transform:uppercase;width:2.4rem}' +
+      '.simrow .sim-bar-track{flex:1}' +
+      '.floor-line{font-size:.78rem;color:var(--muted);margin:.4rem 0 1rem;padding:.4rem .6rem;background:var(--bg-secondary);border-radius:.4rem}';
     document.head.appendChild(style);
   }
-  // summary
-  const rotAvg = ['Rotate 90°','Rotate 180°','Rotate 270°'].map(n => results.find(r => r.name === n)?.sim).filter(v => v != null);
-  const cropAvg = ['Crop 20%','Crop 35%'].map(n => results.find(r => r.name === n)?.sim).filter(v => v != null);
-  const flipH = results.find(r => r.name === 'Flip horizontal')?.sim;
-  const rotAvgPct = rotAvg.length ? Math.round(rotAvg.reduce((a,b)=>a+b,0)/rotAvg.length * 100) : '—';
-  const cropAvgPct = cropAvg.length ? Math.round(cropAvg.reduce((a,b)=>a+b,0)/cropAvg.length * 100) : '—';
-  $('legend').innerHTML = `<strong>Summary:</strong> Average rotation similarity: ${rotAvgPct}% · Average crop similarity: ${cropAvgPct}% · Horizontal flip: ${flipH != null ? Math.round(flipH * 100) + '%' : '—'}.<br>High similarity (green) means the encoder is invariant to that transform. Low similarity (red) means it's sensitive — the embedding changes significantly.`;
+
+  const rows = results.map((r) => {
+    const rp = Math.round(r.raw * 100), jp = Math.round(r.jpeg * 100);
+    const barSeg = (p, label) =>
+      `<div class="simrow"><span class="tag">${label}</span>` +
+      `<span class="sim-val" style="color:${col(p)};width:2.6rem;text-align:right">${p}%</span>` +
+      `<div class="sim-bar-track"><div class="sim-bar-fill" style="width:${p}%;background:${col(p)}"></div></div></div>`;
+    return `<div class="result-row">
+      <img class="result-thumb" src="${r.thumb}" alt="${r.name}">
+      <div class="result-info"><div class="result-name">${r.name}</div>
+        <div class="result-desc">raw pixels vs JPEG q0.9</div></div>
+      <div class="simcol">${barSeg(rp, 'raw')}${barSeg(jp, 'jpeg')}</div>
+    </div>`;
+  }).join('');
+
+  $('results').innerHTML = `<h2>Embedding similarity vs original</h2>` +
+    (floorPct != null
+      ? `<p class="floor-line"><strong>Different-image floor: ${floorPct}%</strong> — similarities near this mean "as different as an unrelated image". Backend: ${backend.toUpperCase()}. Embeddings are mean-pooled + normalized.</p>`
+      : '') +
+    rows +
+    `<div style="margin-top:1rem"><button class="secondary" id="export-btn">Download results (JSON)</button></div>`;
+  $('export-btn').addEventListener('click', () => exportResults(data));
+
+  const avg = (names) => {
+    const v = names.map((n) => results.find((r) => r.name === n)?.raw).filter((x) => x != null);
+    return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 100) : '—';
+  };
+  $('legend').innerHTML =
+    `<strong>Summary (raw pixels):</strong> rotation ${avg(['Rotate 90°', 'Rotate 180°', 'Rotate 270°'])}% · ` +
+    `crop ${avg(['Crop 20%', 'Crop 35%'])}% · flip H ${avg(['Flip H'])}%` +
+    (floorPct != null ? ` · floor ${floorPct}%` : '') +
+    `.<br>Green ≥90, amber ≥70, red below. Compare each bar to the floor, not to 100%.`;
 }
 // invalidate cache when model changes
 $('model-select').addEventListener('change', () => {
   extractor = null;
+  currentModel = null;
   originalEmbedding = null;
+  originalEmbeddingJpeg = null;
   $('results').innerHTML = '';
   $('legend').innerHTML = '';
 });

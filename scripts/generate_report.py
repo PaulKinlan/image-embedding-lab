@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
-"""Generate the batch experiment report HTML from the three JSON result files."""
-import json, os, base64
+"""Generate the batch experiment report HTML from the three JSON result files.
+
+Consumes the current schema (see cli.mjs): each results-<model>.json has
+{model, images, baseline:{raw,jpeg}, summary:[{name, raw:{mean,std,n}, jpeg:{...}}],
+perImage:[{file, results:[{name, raw, jpeg}]}]}. Embeddings are mean-pooled + normalized.
+"""
+import json, os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 results = {}
@@ -9,40 +14,43 @@ for model in ['clip', 'siglip', 'dinov2']:
     if os.path.exists(fpath):
         results[model] = json.load(open(fpath))
 
-# aggregate by transform category
 CATEGORIES = {
-    'Rotation (90°/180°/270°)': ['Rotate 90°', 'Rotate 180°', 'Rotate 270°'],
-    'Slight rotation (15°/45°)': ['Rotate 15°', 'Rotate 45°'],
-    'Crop (20%/35%)': ['Crop 20%', 'Crop 35%'],
-    'Scale (80%/120%)': ['Scale 80%', 'Scale 120%'],
+    'Rotation (90/180/270)': ['Rotate 90°', 'Rotate 180°', 'Rotate 270°'],
+    'Slight rotation (15/45)': ['Rotate 15°', 'Rotate 45°'],
+    'Crop (20/35%)': ['Crop 20%', 'Crop 35%'],
+    'Scale (80/120%)': ['Scale 80%', 'Scale 120%'],
     'Flip horizontal': ['Flip H'],
     'Flip vertical': ['Flip V'],
-    'Combined (rot+crop)': ['Rotate 90° + Crop 20%'],
+    'Grayscale': ['Grayscale'],
+    'Brightness (±30%)': ['Brighten 1.3×', 'Darken 0.7×'],
+    'Blur': ['Blur'],
+    'Occlude 25%': ['Occlude 25%'],
 }
 
-def avg_for(img_results, names):
-    vals = [r['pct'] for r in img_results if r['name'] in names]
-    return sum(vals) / len(vals) if vals else 0
+def summ_mean(data, names):
+    vals = [t['raw']['mean'] for t in data['summary']
+            if t['name'] in names and t['raw']['mean'] is not None]
+    return sum(vals) / len(vals) * 100 if vals else 0
+
+def img_avg(img_results, names, key='raw'):
+    vals = [r[key] for r in img_results if r['name'] in names and r[key] is not None]
+    return sum(vals) / len(vals) * 100 if vals else 0
+
+def floor_of(data):
+    return (data['baseline']['raw']['mean'] or 0) * 100
 
 def color_for(pct):
     if pct >= 90: return 'var(--good)'
-    if pct >= 75: return 'var(--warn)'
+    if pct >= 70: return 'var(--warn)'
     return 'var(--bad)'
 
-# compute category averages per model
-model_avgs = {}
-for model, data in results.items():
-    cat_avgs = {}
-    for cat, names in CATEGORIES.items():
-        all_vals = []
-        for img in data:
-            all_vals.append(avg_for(img['results'], names))
-        cat_avgs[cat] = sum(all_vals) / len(all_vals) if all_vals else 0
-    model_avgs[model] = cat_avgs
+model_avgs = {m: {cat: summ_mean(d, names) for cat, names in CATEGORIES.items()}
+              for m, d in results.items()}
+floors = {m: floor_of(d) for m, d in results.items()}
 
 MODEL_LABELS = {'clip': 'CLIP (OpenAI)', 'siglip': 'SigLIP (Google)', 'dinov2': 'DINOv2 (Meta)'}
+n_images = len(next(iter(results.values()))['perImage']) if results else 0
 
-# build HTML
 html_parts = [f'''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -68,6 +76,7 @@ td.num,th.num{{text-align:right;font-variant-numeric:tabular-nums}}
 .bar-track{{height:18px;background:var(--bg-secondary);border-radius:3px;overflow:hidden;display:flex;align-items:center;padding:0 .4rem}}
 .bar-fill{{height:100%;border-radius:3px;position:absolute;left:0;top:0}}
 .bar-label{{position:relative;z-index:1;font-size:.7rem;font-weight:700;color:#fff;text-shadow:0 0 3px rgba(0,0,0,.5)}}
+.floor-row td{{font-weight:700;border-top:2px solid var(--border)}}
 .finding{{font-size:.85rem;padding:.8rem;background:var(--bg-secondary);border-left:3px solid var(--accent);border-radius:0 .4rem .4rem 0;margin:.8rem 0}}
 .finding b{{color:var(--accent)}}
 .note{{font-size:.75rem;color:var(--muted);margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);line-height:1.5}}
@@ -76,11 +85,11 @@ td.num,th.num{{text-align:right;font-variant-numeric:tabular-nums}}
 <body>
 <a class="back" href="index.html">← Back to Image Embedding Lab</a>
 <h1>Embedding Invariance Report</h1>
-<p class="sub">Batch experiment: {len(next(iter(results.values()))) if results else 0} diverse images × {len(results)} models × 15 transformations. Cosine similarity between each transformed embedding and the original.</p>
+<p class="sub">{n_images} diverse images × {len(results)} encoders × {len(CATEGORIES)} transform groups. Cosine similarity between each transformed embedding and the original — <b>mean-pooled + L2-normalized</b>, so the models are compared like-for-like. Each cell is the raw-pixel mean; the different-image floor tells you how low "low" is.</p>
 ''']
 
 # Summary table
-html_parts.append('<h2>Summary: average similarity by transformation type</h2>')
+html_parts.append('<h2>Summary: mean similarity by transform (raw pixels)</h2>')
 html_parts.append('<table><thead><tr><th>Transformation</th>')
 for model in results:
     html_parts.append(f'<th class="num">{MODEL_LABELS.get(model, model)}</th>')
@@ -92,56 +101,55 @@ for cat in CATEGORIES:
         c = color_for(pct)
         html_parts.append(f'<td class="num bar-cell"><div class="bar-track"><div class="bar-fill" style="width:{pct:.0f}%;background:{c}"></div><span class="bar-label">{pct:.0f}%</span></div></td>')
     html_parts.append('</tr>')
+# baseline floor row
+html_parts.append('<tr class="floor-row"><td>Different-image floor</td>')
+for model in results:
+    html_parts.append(f'<td class="num">{floors[model]:.0f}%</td>')
+html_parts.append('</tr>')
 html_parts.append('</tbody></table>')
 
-# Key findings
-html_parts.append('''
+# Key findings (corrected)
+def norm(model, cat):
+    f = floors[model]
+    return (model_avgs[model][cat] - f) / (100 - f) * 100 if (100 - f) else 0
+
+rot_norm = {m: norm(m, 'Rotation (90/180/270)') for m in results}
+html_parts.append(f'''
 <h2>Key findings</h2>
-<div class="finding"><b>CLIP is the most transformation-invariant encoder.</b> Despite being the oldest model (2021), CLIP's ViT-Base-Patch32 produces embeddings that are surprisingly robust to rotation, cropping, and scaling. The key factor: <b>large patch size (32×32)</b> coarsens the spatial representation, making it less sensitive to pixel-level rearrangement. CLIP also benefits from 400M image-text pairs that include diverse orientations.</div>
+<div class="finding"><b>Patch size does <i>not</i> rank the encoders.</b> With embeddings pooled, SigLIP (patch 16) matches CLIP (patch 32) on rotation, and DINOv2 (patch 14) is close behind. An earlier version of this report compared CLIP's pooled vector against SigLIP/DINOv2's raw <i>unpooled patch grids</i> — rotating an image scrambles a patch grid's token order, which manufactured a fake "small patch = rotation-sensitive" effect. Pooling removes it.</div>
 
-<div class="finding"><b>SigLIP and DINOv2 are rotation-sensitive.</b> Both use smaller patches (16×16 / 14×14) which preserve fine spatial detail — but that detail IS affected by rotation. A 90° turn completely rewrites the patch grid.</div>
+<div class="finding"><b>The baseline is the real story.</b> The different-image floor differs a lot — CLIP {floors.get('clip',0):.0f}%, SigLIP {floors.get('siglip',0):.0f}%, DINOv2 {floors.get('dinov2',0):.0f}%. So CLIP's high absolute scores are partly a compressed embedding space (two unrelated images already sit at {floors.get('clip',0):.0f}%). Normalized to each model's own floor, rotation robustness is CLIP {rot_norm.get('clip',0):.0f}%, SigLIP {rot_norm.get('siglip',0):.0f}%, DINOv2 {rot_norm.get('dinov2',0):.0f}% — comparable. "CLIP is the most invariant" doesn't survive the baseline.</div>
 
-<div class="finding"><b>Horizontal flips are nearly free for CLIP.</b> CLIP achieves 98-100% similarity on horizontal flips across all images. DINOv2 ranges 46-88% — self-supervised training includes some flip augmentation but not consistently. SigLIP is 33-68%.</div>
+<div class="finding"><b>JPEG q0.9 is negligible.</b> Every transform is embedded twice (raw pixels and a JPEG round-trip); the mean difference is ~1 point. Compression is not what these numbers measure.</div>
 
-<div class="finding"><b>None of these encoders capture "semantic invariance."</b> Unlike text embeddings — where paraphrases with zero shared tokens produce nearly identical vectors — no image encoder treats a rotated image as "the same image." A 90° rotation is a fundamentally different input to a ViT because positional embeddings are absolute. This is an open research frontier (equivariant networks, rotation-invariant architectures).</div>
+<div class="finding"><b>Rotation is the hardest geometric transform — but not catastrophic.</b> 72–85% raw, comfortably above every floor. Photometric changes (grayscale, brightness, blur, occlusion) are nearly free (high 80s–90s): these encoders care about content layout far more than exact pixels.</div>
 
-<div class="finding"><b>Patch size is the dominant factor.</b> CLIP (patch 32) > SigLIP (patch 16) ≈ DINOv2 (patch 14) for every transformation category. Larger patches = coarser spatial representation = more invariant.</div>
+<div class="finding"><b>Still true:</b> no encoder is fully transformation-invariant — a rotated image is not treated as identical. ViT positional embeddings are absolute, so a turn is a genuinely different input. That framing was right in the earlier write-up; only the magnitudes were wrong.</div>
 ''')
 
 # Per-image breakdown
-html_parts.append('<h2>Per-image breakdown</h2>')
+html_parts.append('<h2>Per-image breakdown (rotation / crop / flip-H, raw)</h2>')
 html_parts.append('<table><thead><tr><th>Image</th>')
 for model in results:
-    html_parts.append(f'<th class="num">{MODEL_LABELS.get(model, model)}<br><span style="font-weight:normal;text-transform:none">rot/crop/flip</span></th>')
+    html_parts.append(f'<th class="num">{MODEL_LABELS.get(model, model)}</th>')
 html_parts.append('</tr></thead><tbody>')
 if results:
-    first_model = next(iter(results.values()))
-    for i, img in enumerate(first_model):
+    first = next(iter(results.values()))['perImage']
+    for i, img in enumerate(first):
         fname = img['file'].split('/')[-1]
         html_parts.append(f'<tr><td>{fname}</td>')
         for model in results:
-            data = results[model][i]
-            rot = avg_for(data['results'], CATEGORIES['Rotation (90°/180°/270°)'])
-            crop = avg_for(data['results'], CATEGORIES['Crop (20%/35%)'])
-            flipH = avg_for(data['results'], ['Flip H'])
+            r = results[model]['perImage'][i]['results']
+            rot = img_avg(r, CATEGORIES['Rotation (90/180/270)'])
+            crop = img_avg(r, CATEGORIES['Crop (20/35%)'])
+            flipH = img_avg(r, ['Flip H'])
             html_parts.append(f'<td class="num">{rot:.0f}% / {crop:.0f}% / {flipH:.0f}%</td>')
         html_parts.append('</tr>')
 html_parts.append('</tbody></table>')
 
-html_parts.append(f'''
-<h2>What this means</h2>
-<p style="font-size:.85rem;line-height:1.6">If you're building an image similarity or search system, these results matter:</p>
-<ul style="font-size:.85rem;line-height:1.8;padding-left:1.5rem;color:var(--muted)">
-<li><b style="color:var(--color)">Near-duplicate detection</b> (same image, different resolution/quality): all three models work well — scaling and small crops preserve embeddings.</li>
-<li><b style="color:var(--color)">Rotation-robust search</b> (e.g. scanned documents that might be sideways): only CLIP is viable (86% avg). SigLIP/DINOv2 drop to ~30%.</li>
-<li><b style="color:var(--color)">Flip-aware deduplication</b>: CLIP treats horizontal flips as identical (99%). If you need to distinguish mirrors, CLIP won't help — use DINOv2 instead (52% avg flip similarity).</li>
-<li><b style="color:var(--color)">Content-addressable storage</b> (hashing images by meaning): no current encoder gives you true transformation-invariant hashing. You'd need to canonicalize images (orient, center-crop) before embedding.</li>
-</ul>
-
+html_parts.append('''
 <div class="note">
-<strong>Methodology:</strong> 10 images from Lorem Picsum (400×400, diverse content). Each transformed to 224×224 via canvas (rotation, crop, scale, flip). Cosine similarity computed between the original embedding and each transform. Models: CLIP ViT-Base-Patch32 (512-dim), SigLIP Base-Patch16-224 (768-dim), DINOv2 Small (384-dim). All run via Transformers.js in Node.js. Full JSON data: <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a>.
-<br><br>
-<strong>About Gemma 4:</strong> Gemma 4 12B Unified is "encoder-free" — images feed directly into the LLM without a separate vision tower. Its internal representations live in the transformer's hidden states, which aren't extractable as traditional embeddings. The Gemma4VisionEncoder variant (separate ViT) could theoretically be tested, but no ONNX build is available for in-browser/Node use yet.
+<strong>Method:</strong> Each image rendered to 224×224 on a mid-gray square, transformed, and embedded via Transformers.js. Feature outputs are mean-pooled to one vector per image (CLIP is already pooled at 512-d; SigLIP and DINOv2 return patch-token grids that must be pooled) and L2-normalized before cosine. Every transform is embedded from raw pixels and after a JPEG round-trip (q0.9). The floor is the mean cosine between distinct images' originals. Reproduce with <code>node cli.mjs test-images/* --model clip|siglip|dinov2 --json</code>. Data + code: <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a>.
 </div>
 </body>
 </html>
@@ -149,10 +157,7 @@ html_parts.append(f'''
 
 with open(os.path.join(ROOT, 'report.html'), 'w') as f:
     f.write('\n'.join(html_parts))
-print(f"Report generated: report.html")
-print(f"Models: {', '.join(results.keys())}")
-print(f"Images: {len(next(iter(results.values())))}")
+print("Report generated: report.html")
 for model in results:
-    cats = model_avgs[model]
-    rot = cats['Rotation (90°/180°/270°)']
-    print(f"  {MODEL_LABELS[model]}: rotation={rot:.0f}% flip={cats['Flip horizontal']:.0f}%")
+    print(f"  {MODEL_LABELS[model]}: rotation={model_avgs[model]['Rotation (90/180/270)']:.0f}% "
+          f"floor={floors[model]:.0f}%")
