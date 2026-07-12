@@ -192,7 +192,11 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 </tbody></table>
 
 <div class="note">
-<strong>Method:</strong> Each image rendered to 224×224 on a mid-gray square, transformed, and embedded via Transformers.js. Feature outputs are mean-pooled to one vector per image (CLIP is already pooled at 512-d; SigLIP and DINOv2 return patch-token grids that must be pooled) and L2-normalized before cosine. Every transform is embedded from raw pixels and after a JPEG round-trip (q0.9). The floor is the mean cosine between distinct images' originals. Reproduce with <code>node cli.mjs test-images/* --model clip|siglip|dinov2 --json</code>. Data + code: <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a>.
+<strong>Embedding method:</strong> each image is rendered to a square on a mid-gray background, passed to the vision encoder, and its output is reduced to ONE vector, then L2-normalized — that vector is what the cosine compares. The pooling step matters: <code>image-feature-extraction</code> returns a pooled <code>[1,512]</code> for CLIP but raw patch-token grids for SigLIP <code>[1,196,768]</code> and DINOv2 <code>[1,257,384]</code>; mean-pooling every model's tokens to one vector is what makes them comparable (skipping it compares flattened patch grids, where rotation just reshuffles token order — the artifact that produced the earlier "patch size" result). Every transform is embedded at raw pixels and three JPEG qualities (q0.9 / q0.5 / q0.2); tiling optionally splits the image into crops, embeds each, and pools them. The floor is the mean cosine between distinct images' originals.
+<br><br>
+<strong>Same method on a VLM:</strong> a vision-language model's encoder builds the same token grid, so you can tap it and pool it identically — Florence-2's <code>encode_image</code> gives <code>[1,577,768]</code> → mean-pool → a 768-d image embedding. An embedding is just one pooled hidden state; the alternative is running that hidden state through the output layer to write text. Try it in the <a href="vlm.html">VLM playground</a>.
+<br><br>
+Reproduce: <code>node cli.mjs test-images/* --model clip|siglip|dinov2|siglip384|clip-l --tiles N --json</code>. Data + code: <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a>.
 </div>
 </body>
 </html>

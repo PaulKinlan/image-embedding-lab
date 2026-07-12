@@ -2,23 +2,41 @@
 
 ## Method
 
-15 images × 3 encoders (CLIP ViT-B/32, SigLIP B/16, DINOv2-S) × 20 transforms (rotations, crops,
-scales, flips, translate, grayscale, brightness, blur, occlusion, combined). For each transform
-we take the cosine similarity between its embedding and the original's.
+15 images × N encoders (CLIP ViT-B/32, SigLIP B/16, DINOv2-S, plus higher-res SigLIP-384 /
+CLIP-L-336) × 20 transforms (rotations, crops, scales, flips, translate, grayscale, brightness,
+blur, occlusion, combined). For each transform we take the cosine similarity between its
+embedding and the original's.
 
-Three things make these numbers trustworthy where an earlier version's were not:
+### The embedding method
 
-1. **Embeddings are mean-pooled, then L2-normalized.** `image-feature-extraction` returns
-   different shapes per model — CLIP `[1, 512]` (already pooled) but SigLIP `[1, 196, 768]` and
-   DINOv2 `[1, 257, 384]` (raw, unpooled patch-token grids). Comparing a flattened patch grid
-   means a rotation just moves each patch to a different index and cosine collapses — and more
-   patches (smaller patch) collapses harder. That single asymmetry produced the earlier
-   "patch size is the dominant factor" conclusion. It was an artifact. Pooling to one vector per
-   image fixes it.
-2. **Every transform is embedded twice** — from raw pixels and after a JPEG round-trip (q0.9) —
-   so compression noise is separated from the transform's real effect.
-3. **A different-image baseline "floor"** (cosine between unrelated images) is reported per
-   model, because a raw similarity is meaningless without knowing how low "unrelated" is.
+An embedding here is one vector per image, produced the same way for every encoder:
+
+1. **Render → encode → pool → normalize.** The image is drawn to a square canvas, passed to the
+   vision encoder, reduced to ONE vector, and L2-normalized. That vector is what every number
+   below compares.
+2. **Pooling is the load-bearing step.** `image-feature-extraction` returns different shapes per
+   model — CLIP `[1, 512]` (already pooled) but SigLIP `[1, 196, 768]` and DINOv2 `[1, 257, 384]`
+   (raw, unpooled patch-token grids). Comparing a flattened patch grid means a rotation moves
+   each patch to a different index and cosine collapses — more patches collapse harder. That
+   asymmetry produced the earlier "patch size is the dominant factor" conclusion; it was an
+   artifact. Mean-pooling every model's tokens to one vector removes it.
+3. **JPEG as an axis.** Every transform is embedded at raw pixels and three JPEG qualities
+   (q0.9 / q0.5 / q0.2), to separate compression noise from the transform's real effect.
+4. **Tiling (AnyRes).** Optionally the image is split into a grid of crops, each embedded at full
+   resolution and mean-pooled — the trick VLMs use to see detail. See the tiling report.
+5. **Baseline floor.** The cosine between unrelated images is reported per model, because a raw
+   similarity means nothing without knowing how low "unrelated" is.
+
+### Getting an embedding out of a VLM
+
+A vision-language model builds the same object internally: its vision encoder turns the image
+into a grid of token vectors, and a language decoder reads them to write text. To get an
+embedding you tap that grid and pool it — step 1 above. Florence-2's `encode_image` returns
+`[1, 577, 768]`; mean-pool → a 768-d image embedding that compares by cosine like the encoders
+here (identical image 100%, kitten vs mountain 67%, two webpages 91%, photo vs webpage 43%). Try
+it in the VLM playground (vlm.html). The point: a model works with per-token embeddings at every
+layer; "an embedding" is one pooled hidden state, versus running that hidden state through the
+output layer to pick the next word.
 
 ## Results (raw-pixel mean % across 15 images)
 
