@@ -5,11 +5,11 @@
  * Measures how invariant a vision encoder's embedding is to image transforms (rotation, crop,
  * scale, flip, blur, brightness, occlusion…). Runs CLIP, SigLIP, or DINOv2 via Transformers.js.
  *
- * Every transform is embedded TWICE — from raw pixels and after a JPEG round-trip (q0.9) — so
- * you can see how much apparent (in)variance is really JPEG compression noise. Embeddings are
- * mean-pooled to a single vector (see lib/experiment.mjs poolEmbedding — without this, SigLIP/
- * DINOv2 are compared as flattened patch grids and rotation trivially scrambles them). A
- * random-different-image baseline "floor" is reported so the similarities are interpretable.
+ * Every transform is embedded at raw pixels AND at three JPEG quality levels (q0.9 / q0.5 /
+ * q0.2), so you can see whether transform-invariance survives increasingly heavy compression.
+ * Embeddings are mean-pooled to a single vector (see lib/experiment.mjs poolEmbedding — without
+ * this, SigLIP/DINOv2 are compared as flattened patch grids and rotation trivially scrambles
+ * them). A random-different-image baseline "floor" is reported so the numbers are interpretable.
  *
  * Usage:
  *   node cli.mjs <images...> [--model clip|siglip|dinov2] [--json] [--limit N] [--verbose]
@@ -25,6 +25,7 @@ import {
   renderTransform,
   SIZE,
   TRANSFORMS,
+  VARIANTS,
 } from "./lib/experiment.mjs";
 
 const MODELS = {
@@ -56,31 +57,29 @@ Options:
   return args;
 }
 
-/** Embed a canvas's raw pixels: RawImage → model → single pooled, normalized vector. */
-async function embedRaw(extractor, canvas) {
-  const ctx = canvas.getContext("2d");
-  const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const raw = new RawImage(data, width, height, 4);
-  const out = await extractor(raw);
+/** Embed a canvas → one pooled, L2-normalized vector. quality=null → raw pixels; a number →
+ *  a JPEG round-trip at that quality first (injects real compression noise). */
+async function embedVariant(extractor, canvas, quality) {
+  let src = canvas;
+  if (quality != null) {
+    const buf = canvas.toBuffer("image/jpeg", { quality });
+    const img = await loadImage(buf);
+    src = createCanvas(SIZE, SIZE);
+    src.getContext("2d").drawImage(img, 0, 0, SIZE, SIZE);
+  }
+  const { data, width, height } = src.getContext("2d").getImageData(0, 0, src.width, src.height);
+  const out = await extractor(new RawImage(data, width, height, 4));
   return poolEmbedding(out.data, out.dims);
 }
 
-/** Embed a canvas after a JPEG round-trip (q0.9) — injects real compression noise. */
-async function embedJpeg(extractor, canvas) {
-  const buf = canvas.toBuffer("image/jpeg", { quality: 0.9 });
-  const img = await loadImage(buf);
-  const tmp = createCanvas(SIZE, SIZE);
-  tmp.getContext("2d").drawImage(img, 0, 0, SIZE, SIZE);
-  return embedRaw(extractor, tmp);
-}
-
-function bar(pct, width = 22) {
+function bar(pct, width = 18) {
   const f = Math.max(0, Math.min(width, Math.round((pct / 100) * width)));
   return "█".repeat(f) + "░".repeat(width - f);
 }
 function color(pct) {
   return pct >= 90 ? "\x1b[32m" : pct >= 70 ? "\x1b[33m" : "\x1b[31m";
 }
+const pctOf = (x) => (x == null ? "—" : String(Math.round(x * 100)));
 
 async function main() {
   const args = parseArgs(process.argv);
@@ -110,8 +109,8 @@ async function main() {
   process.stderr.write(`${label} loaded.\n\n`);
 
   const perImage = [];
-  const origRawEmbs = [];
-  const origJpegEmbs = [];
+  const origEmbs = {};
+  for (const v of VARIANTS) origEmbs[v.key] = [];
 
   for (const file of files) {
     process.stderr.write(`Processing ${file}…\n`);
@@ -120,22 +119,25 @@ async function main() {
     const ctx = canvas.getContext("2d");
 
     renderTransform(ctx, img, {}); // Identity
-    const origRaw = await embedRaw(extractor, canvas);
-    const origJpeg = await embedJpeg(extractor, canvas);
-    origRawEmbs.push(origRaw);
-    origJpegEmbs.push(origJpeg);
+    const orig = {};
+    for (const v of VARIANTS) {
+      orig[v.key] = await embedVariant(extractor, canvas, v.quality);
+      origEmbs[v.key].push(orig[v.key]);
+    }
 
     const results = [];
     for (const t of TRANSFORMS) {
       renderTransform(ctx, img, t.p);
-      const raw = cosineSim(origRaw, await embedRaw(extractor, canvas));
-      const jpeg = cosineSim(origJpeg, await embedJpeg(extractor, canvas));
-      results.push({ name: t.name, raw, jpeg });
+      const row = { name: t.name };
+      for (const v of VARIANTS) {
+        row[v.key] = cosineSim(orig[v.key], await embedVariant(extractor, canvas, v.quality));
+      }
+      results.push(row);
     }
     perImage.push({ file, results });
   }
 
-  // Random-different-image baseline: cosine between every pair of distinct originals.
+  // Random-different-image baseline floor, per variant.
   const pairFloor = (embs) => {
     const sims = [];
     for (let i = 0; i < embs.length; i++) {
@@ -145,39 +147,54 @@ async function main() {
     sims.sort((a, b) => a - b);
     return { ...s, p95: sims.length ? sims[Math.floor(sims.length * 0.95)] : null };
   };
-  const baseline = { raw: pairFloor(origRawEmbs), jpeg: pairFloor(origJpegEmbs) };
+  const baseline = {};
+  for (const v of VARIANTS) baseline[v.key] = pairFloor(origEmbs[v.key]);
 
-  // Per-transform summary (mean ± std across images), raw and jpeg.
+  // Per-transform summary (mean ± std across images), per variant.
   const summary = TRANSFORMS.map((t) => {
-    const raw = meanStd(perImage.map((im) => im.results.find((r) => r.name === t.name)?.raw));
-    const jpeg = meanStd(perImage.map((im) => im.results.find((r) => r.name === t.name)?.jpeg));
-    return { name: t.name, raw, jpeg };
+    const row = { name: t.name };
+    for (const v of VARIANTS) {
+      row[v.key] = meanStd(perImage.map((im) => im.results.find((r) => r.name === t.name)?.[v.key]));
+    }
+    return row;
   });
 
-  const report = { model: args.model, modelId, images: files.length, baseline, summary, perImage };
+  const report = {
+    model: args.model,
+    modelId,
+    images: files.length,
+    variants: VARIANTS.map((v) => v.key),
+    baseline,
+    summary,
+    perImage,
+  };
 
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));
     return;
   }
 
-  // Human table.
+  // Human table: raw + each JPEG quality.
   console.log(`\n${label} — ${files.length} image(s), mean similarity across images`);
-  console.log(`(pooled + L2-normalized embeddings; each transform embedded raw and via JPEG)\n`);
-  console.log(`  ${"transform".padEnd(22)} ${"raw".padStart(5)}  ${"jpeg".padStart(5)}`);
-  console.log("  " + "─".repeat(52));
+  console.log(`(pooled + L2-normalized embeddings; raw pixels vs JPEG q0.9 / q0.5 / q0.2)\n`);
+  const head = "raw".padStart(4) + VARIANTS.slice(1).map((v) => v.label.padStart(9)).join("");
+  console.log(`  ${"transform".padEnd(22)} ${head}`);
+  console.log("  " + "─".repeat(58));
   for (const s of summary) {
     const rp = Math.round((s.raw.mean ?? 0) * 100);
-    const jp = Math.round((s.jpeg.mean ?? 0) * 100);
+    const rest = VARIANTS.slice(1)
+      .map((v) => `${pctOf(s[v.key].mean).padStart(6)}%`.padStart(9))
+      .join("");
     const reset = "\x1b[0m";
     console.log(
-      `  ${s.name.padEnd(22)} ${color(rp)}${String(rp).padStart(3)}%${reset} ${bar(rp)}  ` +
-        `${color(jp)}${String(jp).padStart(3)}%${reset}`,
+      `  ${s.name.padEnd(22)} ${color(rp)}${String(rp).padStart(3)}%${reset} ${bar(rp)}${rest}`,
     );
   }
-  console.log("  " + "─".repeat(52));
-  const bl = (b) => (b.mean != null ? `${Math.round(b.mean * 100)}% (p95 ${Math.round(b.p95 * 100)}%)` : "—");
-  console.log(`  Different-image floor — raw: ${bl(baseline.raw)} · jpeg: ${bl(baseline.jpeg)}`);
+  console.log("  " + "─".repeat(58));
+  const bl = (v) => (baseline[v].mean != null ? `${Math.round(baseline[v].mean * 100)}%` : "—");
+  console.log(
+    `  Different-image floor — ` + VARIANTS.map((v) => `${v.label} ${bl(v.key)}`).join(" · "),
+  );
   console.log(`  (Similarities near the floor mean "as different as an unrelated image".)`);
 }
 

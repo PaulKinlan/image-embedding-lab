@@ -62,12 +62,30 @@ button.secondary{background:var(--bg-secondary);color:var(--color)}
 .legend{font-size:.75rem;color:var(--muted);margin-top:.5rem;line-height:1.5}
 .note{font-size:.75rem;color:var(--muted);margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)}
 a{color:var(--accent)}
+.links{display:flex;gap:.5rem;flex-wrap:wrap;margin:-.6rem 0 1.5rem}
+.links a{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;text-decoration:none;padding:.3rem .7rem;border:1px solid var(--border);border-radius:999px;background:var(--bg-secondary);color:var(--color)}
+.links a:hover{border-color:var(--accent);color:var(--accent)}
+select#model-select{width:100%;max-width:32rem;padding:.5rem .6rem;font-size:.9rem}
+.control-group>label{font-weight:600}
+.primary-btn{background:var(--accent);color:#fff;font-size:.95rem;font-weight:600;padding:.7rem 1.4rem;border-radius:.5rem;border:0}
+.primary-btn:disabled{opacity:.5}
+.embed-progress{margin:1rem 0;display:none}
+.embed-progress.show{display:block}
+.embed-bar{height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden}
+.embed-bar-fill{height:100%;width:0;background:var(--accent);border-radius:4px;transition:width .12s ease}
+.embed-label{font-size:.78rem;color:var(--muted);margin-top:.45rem;font-variant-numeric:tabular-nums;display:flex;justify-content:space-between}
+.summary-card{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:.5rem;margin:1rem 0;padding:1rem;background:var(--bg-secondary);border-radius:.6rem}
+.summary-card .stat{text-align:center}
+.summary-card .stat b{display:block;font-size:1.5rem;font-variant-numeric:tabular-nums}
+.summary-card .stat span{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.sim-bar-track{position:relative}
+.floor-marker{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--color);opacity:.5}
 </style>
 </head>
 <body>
 <h1>Image Embedding Lab</h1>
 <p class="sub">Are image embeddings invariant to rotation, cropping, and scaling? Upload an image and find out. Vision encoders run entirely in your browser — no server, no API key. Model blobs are cached via service worker after first download.</p>
-<p class="sub" style="margin-top:-1rem"><a href="report.html">📊 Batch report</a> &nbsp;·&nbsp; <a href="docs.html">Docs &amp; CLI</a> &nbsp;·&nbsp; <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
+<div class="links"><a href="report.html">📊 Batch report</a><a href="docs.html">📖 Docs &amp; CLI</a><a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">↗ GitHub</a></div>
 
 <div class="controls" style="margin-bottom:1rem">
   <div class="control-group">
@@ -142,7 +160,12 @@ a{color:var(--accent)}
 
   <p id="test-result" class="legend" style="margin:0 0 1rem"></p>
 
-  <button id="compare-btn">Compare embeddings</button>
+  <button id="compare-btn" class="primary-btn">Compare all transforms</button>
+
+  <div id="embed-progress" class="embed-progress">
+    <div class="embed-bar"><div class="embed-bar-fill" id="embed-bar-fill"></div></div>
+    <div class="embed-label" id="embed-label"></div>
+  </div>
 
   <div class="results" id="results"></div>
   <p class="legend" id="legend"></p>
@@ -153,7 +176,7 @@ a{color:var(--accent)}
 <script src="gemma4.js"></script>
 <script type="module">
 import { pipeline, env, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
-import { poolEmbedding, cosineSim as coreCosine, renderTransform as coreRender, TRANSFORMS, SIZE } from './lib/experiment.mjs';
+import { poolEmbedding, cosineSim as coreCosine, renderTransform as coreRender, TRANSFORMS, VARIANTS, SIZE } from './lib/experiment.mjs';
 
 env.allowLocalModels = false;
 
@@ -225,6 +248,17 @@ function resetDownloadUI() {
 function setStatus(text, cls = '') {
   status.textContent = text;
   status.className = 'status show ' + cls;
+}
+
+// Live progress for the embedding loop (each embed is a model forward pass — on WASM that's
+// seconds, so the user needs to see where it's up to). done=null hides it.
+function setEmbedProgress(done, total, label) {
+  const el = $('embed-progress');
+  if (done == null) { el.classList.remove('show'); return; }
+  el.classList.add('show');
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  $('embed-bar-fill').style.width = pct + '%';
+  $('embed-label').innerHTML = `<span>${label}</span><span>${done}/${total}</span>`;
 }
 
 // --- Model loading ---
@@ -362,16 +396,22 @@ $('test-btn').addEventListener('click', async () => {
   const out = $('test-result');
   try {
     const model = await loadModel();
-    out.textContent = `Embedding (${backend.toUpperCase()})…`;
+    const total = VARIANTS.length * 2;
+    let step = 0;
+    const tick = (label) => setEmbedProgress(++step, total, label);
     const origCanvas = renderToTmp({});
-    originalEmbedding = await embed(model, origCanvas, false);
-    originalEmbeddingJpeg = await embed(model, origCanvas, true);
     const p = getTransformParams();
     const canvas = renderToTmp(p);
-    const raw = Math.round(coreCosine(originalEmbedding, await embed(model, canvas, false)) * 100);
-    const jpeg = Math.round(coreCosine(originalEmbeddingJpeg, await embed(model, canvas, true)) * 100);
-    out.innerHTML = `<strong>This transform:</strong> raw <strong>${raw}%</strong> · jpeg <strong>${jpeg}%</strong> similarity to the original.`;
+    const parts = [];
+    for (const v of VARIANTS) {
+      const oe = await embed(model, origCanvas, v.quality); tick(`Original · ${v.label}`);
+      const te = await embed(model, canvas, v.quality); tick(`Transform · ${v.label}`);
+      parts.push(`${v.label} <strong>${Math.round(coreCosine(oe, te) * 100)}%</strong>`);
+    }
+    setEmbedProgress(null);
+    out.innerHTML = `<strong>This transform:</strong> ${parts.join(' · ')} similarity to the original.`;
   } catch (e) {
+    setEmbedProgress(null);
     out.textContent = 'Error: ' + e.message;
   } finally {
     btn.disabled = false;
@@ -392,9 +432,9 @@ function cosineSim(a, b) {
 // Embed a canvas → ONE pooled, L2-normalized vector (see lib/experiment.mjs poolEmbedding).
 // jpeg=true routes the pixels through a JPEG round-trip (q0.9) so we can measure how much
 // apparent (in)variance is really compression noise vs the transform itself.
-async function embed(model, canvas, jpeg) {
+async function embed(model, canvas, quality) {
   let src = canvas;
-  if (jpeg) src = await jpegRoundTrip(canvas);
+  if (quality != null) src = await jpegRoundTrip(canvas, quality);
   if (model === 'gemma4' && window.__gemma4) return await window.__gemma4.embedGemma4(src);
   const ctx = src.getContext('2d');
   const { data, width, height } = ctx.getImageData(0, 0, src.width, src.height);
@@ -402,7 +442,7 @@ async function embed(model, canvas, jpeg) {
   return poolEmbedding(out.data, out.dims);
 }
 
-function jpegRoundTrip(canvas) {
+function jpegRoundTrip(canvas, quality) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -411,7 +451,7 @@ function jpegRoundTrip(canvas) {
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
       resolve(c);
     };
-    img.src = canvas.toDataURL('image/jpeg', 0.9);
+    img.src = canvas.toDataURL('image/jpeg', quality);
   });
 }
 
@@ -432,27 +472,42 @@ $('compare-btn').addEventListener('click', async () => {
   btn.disabled = true;
   try {
     const model = await loadModel();
-    setStatus(`Computing embeddings (${backend.toUpperCase()})…`, 'loading');
+    setStatus('', '');
 
+    const total = VARIANTS.length * (1 + TRANSFORMS.length) + FLOOR_REFS.length;
+    let step = 0;
+    const tick = (label) => setEmbedProgress(++step, total, label);
+    setEmbedProgress(0, total, 'Preparing…');
+
+    // Original embedding per variant (raw + each JPEG quality).
     const origCanvas = renderToTmp({});
-    originalEmbedding = await embed(model, origCanvas, false);
-    originalEmbeddingJpeg = await embed(model, origCanvas, true);
+    const orig = {};
+    for (const v of VARIANTS) {
+      orig[v.key] = await embed(model, origCanvas, v.quality);
+      tick(`Original · ${v.label}`);
+    }
+    originalEmbedding = orig.raw; // the floor compares raw-vs-raw
 
-    // Every transform embedded twice: raw pixels vs JPEG round-trip.
+    // Every transform embedded at raw + each JPEG quality (within-variant similarity).
     const results = [];
     for (const t of TRANSFORMS) {
       const canvas = renderToTmp(t.p);
-      const raw = coreCosine(originalEmbedding, await embed(model, canvas, false));
-      const jpeg = coreCosine(originalEmbeddingJpeg, await embed(model, canvas, true));
-      results.push({ name: t.name, thumb: canvas.toDataURL('image/jpeg', 0.9), raw, jpeg });
+      const row = { name: t.name, thumb: canvas.toDataURL('image/jpeg', 0.9) };
+      for (const v of VARIANTS) {
+        row[v.key] = coreCosine(orig[v.key], await embed(model, canvas, v.quality));
+        tick(`${t.name} · ${v.label}`);
+      }
+      results.push(row);
     }
 
-    const floor = await computeFloor(model);
-    lastResults = { model, backend, floor, results };
+    const floor = await computeFloor(model, tick);
+    setEmbedProgress(null);
+    lastResults = { model, backend, floor, variants: VARIANTS.map((v) => v.key), results };
     renderResults(lastResults);
     setStatus('');
   } catch (e) {
     console.error(e);
+    setEmbedProgress(null);
     setStatus('Error: ' + e.message, 'error');
   } finally {
     btn.disabled = false;
@@ -463,8 +518,11 @@ $('compare-btn').addEventListener('click', async () => {
 // images (different content). Answers "how low is low?" — similarities near it mean "as different
 // as an unrelated image". Cached per model.
 const FLOOR_REFS = ['test-images/photo-kitten.jpg', 'test-images/webpage-hn.png', 'test-images/text-readme.png'];
-async function computeFloor(model) {
-  if (floorCache[model] != null) return floorCache[model];
+async function computeFloor(model, tick) {
+  if (floorCache[model] != null) {
+    if (tick) FLOOR_REFS.forEach(() => tick('Baseline floor…'));
+    return floorCache[model];
+  }
   try {
     const sims = [];
     for (const url of FLOOR_REFS) {
@@ -472,7 +530,8 @@ async function computeFloor(model) {
       const c = document.createElement('canvas');
       c.width = SIZE; c.height = SIZE;
       coreRender(c.getContext('2d'), img, {}, SIZE);
-      sims.push(coreCosine(originalEmbedding, await embed(model, c, false)));
+      sims.push(coreCosine(originalEmbedding, await embed(model, c, null)));
+      if (tick) tick('Baseline floor…');
     }
     return (floorCache[model] = sims.reduce((a, b) => a + b, 0) / sims.length);
   } catch (e) {
@@ -499,54 +558,63 @@ function exportResults(data) {
 }
 
 function renderResults(data) {
-  const { results, floor, backend } = data;
+  const { results, floor } = data;
   const floorPct = floor != null ? Math.round(floor * 100) : null;
   const col = (p) => (p >= 90 ? 'var(--good)' : p >= 70 ? 'var(--warn)' : 'var(--bad)');
+  const jkeys = VARIANTS.filter((v) => v.key !== 'raw');
 
   if (!document.getElementById('res-css')) {
     const style = document.createElement('style');
     style.id = 'res-css';
     style.textContent =
-      '.result-row{grid-template-columns:70px 1fr 140px}' +
-      '.simcol{display:flex;flex-direction:column;gap:.35rem;min-width:130px}' +
-      '.simrow{display:flex;align-items:center;gap:.4rem;font-size:.72rem}' +
-      '.simrow .tag{color:var(--muted);text-transform:uppercase;width:2.4rem}' +
-      '.simrow .sim-bar-track{flex:1}' +
-      '.floor-line{font-size:.78rem;color:var(--muted);margin:.4rem 0 1rem;padding:.4rem .6rem;background:var(--bg-secondary);border-radius:.4rem}';
+      '.result-row{grid-template-columns:64px 1fr;gap:.8rem;align-items:center}' +
+      '.simmain{display:flex;align-items:center;gap:.5rem;margin-top:.15rem}' +
+      '.simmain .sim-val{width:2.9rem;text-align:right;font-weight:700}' +
+      '.simmain .sim-bar-track{flex:1;height:9px}' +
+      '.jpegline{font-size:.68rem;color:var(--muted);margin-top:.3rem;font-variant-numeric:tabular-nums}' +
+      '.jpegline b{color:var(--color);font-weight:600}' +
+      '.floor-line{font-size:.75rem;color:var(--muted);margin:.2rem 0 1.2rem;padding:.5rem .7rem;background:var(--bg-secondary);border-radius:.4rem;line-height:1.5}';
     document.head.appendChild(style);
   }
 
   const rows = results.map((r) => {
-    const rp = Math.round(r.raw * 100), jp = Math.round(r.jpeg * 100);
-    const barSeg = (p, label) =>
-      `<div class="simrow"><span class="tag">${label}</span>` +
-      `<span class="sim-val" style="color:${col(p)};width:2.6rem;text-align:right">${p}%</span>` +
-      `<div class="sim-bar-track"><div class="sim-bar-fill" style="width:${p}%;background:${col(p)}"></div></div></div>`;
+    const rp = Math.round(r.raw * 100);
+    const mark = floorPct != null ? `<div class="floor-marker" style="left:${floorPct}%"></div>` : '';
+    const jpeg = jkeys.map((v) => `${v.label.replace('jpeg ', 'q')} <b>${Math.round(r[v.key] * 100)}%</b>`).join(' &nbsp;·&nbsp; ');
     return `<div class="result-row">
       <img class="result-thumb" src="${r.thumb}" alt="${r.name}">
-      <div class="result-info"><div class="result-name">${r.name}</div>
-        <div class="result-desc">raw pixels vs JPEG q0.9</div></div>
-      <div class="simcol">${barSeg(rp, 'raw')}${barSeg(jp, 'jpeg')}</div>
+      <div>
+        <div class="result-name">${r.name}</div>
+        <div class="simmain">
+          <span class="sim-val" style="color:${col(rp)}">${rp}%</span>
+          <div class="sim-bar-track"><div class="sim-bar-fill" style="width:${rp}%;background:${col(rp)}"></div>${mark}</div>
+        </div>
+        <div class="jpegline">jpeg &nbsp;${jpeg}</div>
+      </div>
     </div>`;
   }).join('');
-
-  $('results').innerHTML = `<h2>Embedding similarity vs original</h2>` +
-    (floorPct != null
-      ? `<p class="floor-line"><strong>Different-image floor: ${floorPct}%</strong> — similarities near this mean "as different as an unrelated image". Backend: ${backend.toUpperCase()}. Embeddings are mean-pooled + normalized.</p>`
-      : '') +
-    rows +
-    `<div style="margin-top:1rem"><button class="secondary" id="export-btn">Download results (JSON)</button></div>`;
-  $('export-btn').addEventListener('click', () => exportResults(data));
 
   const avg = (names) => {
     const v = names.map((n) => results.find((r) => r.name === n)?.raw).filter((x) => x != null);
     return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 100) : '—';
   };
-  $('legend').innerHTML =
-    `<strong>Summary (raw pixels):</strong> rotation ${avg(['Rotate 90°', 'Rotate 180°', 'Rotate 270°'])}% · ` +
-    `crop ${avg(['Crop 20%', 'Crop 35%'])}% · flip H ${avg(['Flip H'])}%` +
-    (floorPct != null ? ` · floor ${floorPct}%` : '') +
-    `.<br>Green ≥90, amber ≥70, red below. Compare each bar to the floor, not to 100%.`;
+  const card = `<div class="summary-card">
+    <div class="stat"><b>${avg(['Rotate 90°', 'Rotate 180°', 'Rotate 270°'])}%</b><span>rotation</span></div>
+    <div class="stat"><b>${avg(['Crop 20%', 'Crop 35%'])}%</b><span>crop</span></div>
+    <div class="stat"><b>${avg(['Flip H'])}%</b><span>flip H</span></div>
+    <div class="stat"><b>${avg(['Grayscale'])}%</b><span>grayscale</span></div>
+    ${floorPct != null ? `<div class="stat"><b style="color:var(--muted)">${floorPct}%</b><span>floor</span></div>` : ''}
+  </div>`;
+
+  $('results').innerHTML = `<h2>Similarity to original — raw pixels (bar), JPEG q90/50/20 below</h2>` +
+    card +
+    (floorPct != null
+      ? `<p class="floor-line">The <strong>floor</strong> tick on each bar sits at ${floorPct}% — where an <em>unrelated</em> image lands. A bar means "invariant" only if it's well to the right of the floor, not just near 100%. Backend: ${data.backend.toUpperCase()}; embeddings mean-pooled + normalized.</p>`
+      : '') +
+    rows +
+    `<div style="margin-top:1rem"><button class="secondary" id="export-btn">Download results (JSON)</button></div>`;
+  $('export-btn').addEventListener('click', () => exportResults(data));
+  $('legend').innerHTML = '';
 }
 // invalidate cache when model changes
 $('model-select').addEventListener('change', () => {
