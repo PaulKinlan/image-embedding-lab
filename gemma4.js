@@ -14,10 +14,19 @@ let gemma4OutputName = null;
 async function loadGemma4(progressCb) {
   if (gemma4Session) return gemma4Session;
 
-  // Load ORT
+  // Load ONNX Runtime Web. ort.min.js is a UMD/global bundle, so it MUST be loaded via a
+  // <script> tag (which sets window.ort). A dynamic import() runs it as an ES module and never
+  // defines the global — that's the "ort is not defined" error.
   if (typeof ort === 'undefined') {
-    await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js');
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Failed to load ONNX Runtime Web from CDN.'));
+      document.head.appendChild(s);
+    });
   }
+  if (typeof ort === 'undefined') throw new Error('ONNX Runtime (ort) global not available after load.');
   ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
 
   // Fetch model graph (small, ~196KB)
