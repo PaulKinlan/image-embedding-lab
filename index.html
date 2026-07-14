@@ -568,7 +568,7 @@ $('compare-btn').addEventListener('click', async () => {
 // Different-image baseline floor: average cosine of the user's image vs a few bundled reference
 // images (different content). Answers "how low is low?" — similarities near it mean "as different
 // as an unrelated image". Cached per model.
-const FLOOR_REFS = ['test-images/photo-kitten.jpg', 'test-images/webpage-hn.png', 'test-images/text-readme.png'];
+const FLOOR_REFS = ['test-images/photo-forest-path.jpg', 'test-images/webpage-hn.png', 'test-images/text-readme.png'];
 async function computeFloor(model, grid, tick) {
   const cacheKey = `${model}@${grid}`;
   if (floorCache[cacheKey] != null) {

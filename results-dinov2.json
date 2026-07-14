@@ -498,7 +498,7 @@
   ],
   "perImage": [
     {
-      "file": "test-images/photo-cathedral.jpg",
+      "file": "test-images/photo-cafe.jpg",
       "results": [
         {
           "name": "Identity",
@@ -643,7 +643,7 @@
       ]
     },
     {
-      "file": "test-images/photo-chart.jpg",
+      "file": "test-images/photo-phone-photographer.jpg",
       "results": [
         {
           "name": "Identity",
@@ -788,7 +788,7 @@
       ]
     },
     {
-      "file": "test-images/photo-diagram.jpg",
+      "file": "test-images/photo-road-tunnel.jpg",
       "results": [
         {
           "name": "Identity",
@@ -933,7 +933,7 @@
       ]
     },
     {
-      "file": "test-images/photo-graph.jpg",
+      "file": "test-images/photo-floating-market.jpg",
       "results": [
         {
           "name": "Identity",
@@ -1078,7 +1078,7 @@
       ]
     },
     {
-      "file": "test-images/photo-kitten.jpg",
+      "file": "test-images/photo-forest-path.jpg",
       "results": [
         {
           "name": "Identity",
@@ -1223,7 +1223,7 @@
       ]
     },
     {
-      "file": "test-images/photo-logo.jpg",
+      "file": "test-images/photo-sea-cliff.jpg",
       "results": [
         {
           "name": "Identity",
@@ -1368,7 +1368,7 @@
       ]
     },
     {
-      "file": "test-images/photo-map.jpg",
+      "file": "test-images/photo-open-book.jpg",
       "results": [
         {
           "name": "Identity",
@@ -1513,7 +1513,7 @@
       ]
     },
     {
-      "file": "test-images/photo-mountain.jpg",
+      "file": "test-images/photo-mountain-lake.jpg",
       "results": [
         {
           "name": "Identity",
@@ -1658,7 +1658,7 @@
       ]
     },
     {
-      "file": "test-images/photo-painting.jpg",
+      "file": "test-images/photo-skateboard.jpg",
       "results": [
         {
           "name": "Identity",
@@ -1803,7 +1803,7 @@
       ]
     },
     {
-      "file": "test-images/photo-sign.jpg",
+      "file": "test-images/photo-ocean-waves.jpg",
       "results": [
         {
           "name": "Identity",
