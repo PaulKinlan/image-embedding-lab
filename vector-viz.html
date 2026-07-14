@@ -877,8 +877,12 @@ document.querySelectorAll('.viz-panel').forEach((panel) => {
   });
 });
 
-// Service worker (same cache as the rest of the lab)
+// Service worker (same cache as the rest of the lab) + persistent storage, so the browser
+// doesn't evict gigabytes of cached models under storage pressure.
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch((e) => console.warn('[vector-viz] sw:', e));
+if (navigator.storage?.persist) {
+  navigator.storage.persist().then((granted) => log('persistent storage:', granted ? 'granted' : 'not granted'));
+}
 log('ready');
 </script>
 </body>

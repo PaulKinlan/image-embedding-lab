@@ -677,6 +677,11 @@ $('model-select').addEventListener('change', () => {
 });
 
 // register service worker for model caching + update detection
+// Persistent storage: without it the browser may evict the origin's caches (including the
+// multi-GB model blobs) under storage pressure, forcing users to re-download everything.
+if (navigator.storage?.persist) {
+  navigator.storage.persist().then((granted) => console.log('persistent storage:', granted ? 'granted' : 'not granted'));
+}
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then((reg) => {
     reg.addEventListener('updatefound', () => {

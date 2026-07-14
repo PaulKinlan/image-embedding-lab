@@ -447,6 +447,13 @@ $('rotBtn').addEventListener('click', async () => {
 $('tasks').querySelectorAll('button').forEach((b) =>
   b.addEventListener('click', () => (b.dataset.task === 'EMBEDDING' ? showEmbedding() : run(b.dataset.task)))
 );
+
+// Service worker + persistent storage: this page downloads ~0.35 GB of model — it must survive
+// deploys (SW versioning must never clear transformers-cache) and storage pressure (persist()).
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if (navigator.storage?.persist) {
+  navigator.storage.persist().then((granted) => console.log('persistent storage:', granted ? 'granted' : 'not granted'));
+}
 </script>
 </body>
 </html>
