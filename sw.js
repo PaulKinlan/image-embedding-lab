@@ -1,6 +1,6 @@
 // Service worker — caches large model blobs, network-first for app shell.
 // Version: bump IEL_SW_VERSION on every deploy to trigger update detection.
-const IEL_SW_VERSION = '2026-07-12-v2';
+const IEL_SW_VERSION = '2026-07-14-v1';
 const MODEL_CACHE = `iel-models`;
 const SHELL_CACHE = `iel-shell-${IEL_SW_VERSION}`;
 const MODEL_ORIGINS = ['huggingface.co', 'cdn-lfs.huggingface.co', 'cdn.jsdelivr.net'];

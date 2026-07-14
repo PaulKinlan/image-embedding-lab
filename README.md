@@ -5,13 +5,28 @@ image, transform it (rotate, crop, scale, flip, compress…), and watch how much
 moves. Everything runs in your browser via Transformers.js (and there's a Node CLI for batch
 runs) — no server, no API key.
 
-Live: https://paulkinlan.github.io/image-embedding-lab/ · [VLM playground](vlm.html) ·
-[Batch report](report.html) · [Tiling report](tiling-report.html) · [Findings](FINDINGS.md)
+Live: https://paulkinlan.github.io/image-embedding-lab/ · [Vector visualizer](vector-viz.html) ·
+[VLM playground](vlm.html) · [Batch report](report.html) · [Tiling report](tiling-report.html) ·
+[Findings](FINDINGS.md)
 
 The **VLM playground** (`vlm.html`) runs Florence-2 in the browser — caption an image, read its
 text (OCR), or detect objects. It's the counterpart to the embedding lab: where the lab reduces
 an image to one vector, a VLM turns it into text, so you can watch it read a page an embedding
 model can only see as "a document".
+
+The **Vector visualizer** (`vector-viz.html`) goes the other way: instead of measuring an
+embedding, it *draws* one. Embed an image (CLIP/SigLIP/DINOv2) or a text string (CLIP — text and
+image share a space) and render the vector as a 2D image: consecutive triples of dimensions as
+RGB pixels, a heatmap grid, a Hilbert-curve walk (neighbouring dims stay neighbouring pixels), a
+barcode, the vector's self-similarity matrix (vᵢ·vⱼ), dimension pairs as complex phase/magnitude,
+a seeded random-projection "fingerprint" texture, or a radial flower. Normalization, dimension
+ordering, and colormap are all swappable lenses. Load two inputs (any mix of image and text) to
+get the cosine similarity, a diverging diff image, and a slerp **morph slider** between the two
+vectors. Hover any pixel to see which dimension it came from and its value. The pure math lives
+in `lib/vector-viz.mjs` (tested by `scripts/test-vector-viz.mjs`); embeddings use the same
+pooling/normalization as the lab via `lib/experiment.mjs`, so what you see here is exactly the
+vector the lab measures. None of these images is "what the model sees" — they're lenses on a
+point in embedding space; the interesting part is comparing structure across inputs and models.
 
 ## What this is really about
 

@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="What does a 512-dimensional embedding look like? Turn CLIP/SigLIP/DINOv2 vectors into images — RGB triples, Hilbert curves, self-similarity matrices — and morph between them.">
+<title>Vector Visualizer — what does an embedding look like?</title>
+<style>
+:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--good:#1a8a3a;--bad:#c0392b;--warn:#e6a700}
+@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--good:#57c97a;--bad:#e06c75;--warn:#d9a441}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:1000px;margin:0 auto}
+h1{font-family:Georgia,serif;font-size:1.8rem;font-weight:normal;margin-bottom:.3rem}
+h2{font-family:Georgia,serif;font-size:1.15rem;font-weight:normal;margin:1.5rem 0 .5rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}
+.sub{color:var(--muted);font-size:.85rem;margin-bottom:1.5rem}
+a{color:var(--accent)}
+.links{display:flex;gap:.5rem;flex-wrap:wrap;margin:-.6rem 0 1.5rem}
+.links a{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;text-decoration:none;padding:.3rem .7rem;border:1px solid var(--border);border-radius:999px;background:var(--bg-secondary);color:var(--color)}
+.links a:hover{border-color:var(--accent);color:var(--accent)}
+.controls{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0;align-items:flex-end}
+.control-group{display:flex;flex-direction:column;gap:.2rem}
+.control-group label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.control-group select,.control-group input[type=number],.control-group input[type=text]{font:inherit;padding:.25rem .4rem;border:1px solid var(--border);border-radius:.3rem;background:var(--background);color:var(--color);font-size:.8rem}
+.control-group input[type=range]{width:140px;accent-color:var(--accent)}
+button{font:inherit;padding:.5rem 1.1rem;border:1px solid var(--border);border-radius:.35rem;background:var(--accent);color:#fff;cursor:pointer;font-size:.82rem}
+button:hover{opacity:.9}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.secondary{background:var(--bg-secondary);color:var(--color)}
+button.small{padding:.25rem .6rem;font-size:.72rem}
+.status{font-size:.82rem;color:var(--muted);margin:.8rem 0;padding:.5rem .8rem;background:var(--bg-secondary);border-radius:.4rem;display:none}
+.status.show{display:block}
+.status.error{color:var(--bad)}
+.status.loading{color:var(--accent)}
+.download-panel{margin:.8rem 0;display:none}
+.download-panel.show{display:block}
+.download-panel .dl-overall{font-size:.82rem;color:var(--muted);margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center}
+.download-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:.6rem}
+.download-bar-fill{height:100%;background:var(--accent);transition:width .3s;border-radius:3px}
+.dl-file{display:grid;grid-template-columns:1fr auto;gap:.3rem;font-size:.72rem;padding:.25rem 0;align-items:center}
+.dl-file .dl-name{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl-file .dl-size{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dl-file .dl-filebar{grid-column:1/-1;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.dl-file .dl-filebar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s}
+.dl-file.done .dl-name::before,.dl-file.cached .dl-name::before{content:'✓ ';color:var(--good)}
+.slots{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+@media(max-width:700px){.slots{grid-template-columns:1fr}}
+.slot{border:1px solid var(--border);border-radius:.6rem;padding:1rem;background:var(--bg-secondary)}
+.slot h3{font-size:.9rem;font-weight:600;margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem}
+.slot .badge{font-size:.68rem;background:var(--accent);color:#fff;border-radius:999px;padding:0 .55rem;line-height:1.5}
+.tabs{display:flex;gap:.4rem;margin-bottom:.7rem}
+.tabs button{padding:.25rem .8rem;font-size:.75rem;background:var(--background);color:var(--color);border:1px solid var(--border)}
+.tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.dropzone{border:2px dashed var(--border);border-radius:.5rem;padding:1.2rem .8rem;text-align:center;color:var(--muted);cursor:pointer;font-size:.8rem;background:var(--background)}
+.dropzone:hover,.dropzone.dragover{border-color:var(--accent);color:var(--accent)}
+.dropzone input{display:none}
+.quickpick{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.6rem}
+.quickpick img{width:44px;height:44px;object-fit:cover;border-radius:.3rem;border:1px solid var(--border);cursor:pointer;background:#fff}
+.quickpick img:hover{border-color:var(--accent)}
+.textinput{display:none;gap:.5rem;flex-direction:column}
+.textinput.show{display:flex}
+.imginput.hide{display:none}
+.textinput input{font:inherit;padding:.45rem .6rem;border:1px solid var(--border);border-radius:.4rem;background:var(--background);color:var(--color);font-size:.85rem;width:100%}
+.slot-meta{font-size:.74rem;color:var(--muted);margin-top:.6rem;display:flex;align-items:center;gap:.5rem;min-height:44px}
+.slot-meta img{width:44px;height:44px;object-fit:cover;border-radius:.3rem;border:1px solid var(--border);background:#fff}
+.slot-err{font-size:.74rem;color:var(--bad);margin-top:.4rem;display:none}
+.slot-err.show{display:block}
+.viz-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+@media(max-width:700px){.viz-grid{grid-template-columns:1fr}}
+.viz-panel{text-align:center}
+.viz-panel .viz-title{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.4rem}
+.viz-panel canvas{max-width:100%;border-radius:.4rem;border:1px solid var(--border);background:var(--bg-secondary);image-rendering:auto}
+.viz-panel canvas.pixelated{image-rendering:pixelated}
+.viz-panel .readout{font-size:.72rem;color:var(--muted);min-height:1.2em;font-variant-numeric:tabular-nums;margin-top:.3rem}
+.viz-panel .viz-actions{margin-top:.35rem;display:flex;gap:.4rem;justify-content:center}
+.cos-card{display:flex;gap:2rem;justify-content:center;align-items:center;margin:1rem 0;padding:1rem;background:var(--bg-secondary);border-radius:.6rem;flex-wrap:wrap}
+.cos-card .stat{text-align:center}
+.cos-card .stat b{display:block;font-size:1.6rem;font-variant-numeric:tabular-nums}
+.cos-card .stat span{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.morph-row{display:flex;align-items:center;gap:.8rem;justify-content:center;margin:.5rem 0 1rem}
+.morph-row input[type=range]{flex:1;max-width:360px;accent-color:var(--accent)}
+.morph-row .tval{font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums;width:6.5rem}
+.mode-desc{font-size:.78rem;color:var(--muted);margin:.2rem 0 .8rem}
+.note{font-size:.75rem;color:var(--muted);margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)}
+#compare-section,#morph-section{display:none}
+#compare-section.show,#morph-section.show{display:block}
+</style>
+</head>
+<body>
+<h1>Vector Visualizer</h1>
+<p class="sub">What does an embedding <em>look</em> like? Take a CLIP/SigLIP/DINOv2 vector from an image — or a CLIP vector from text — and map its hundreds of dimensions onto a 2D image: consecutive triples as RGB pixels, Hilbert-curve walks, self-similarity matrices, phase wheels. Load two inputs to see their diff and morph between them. Everything runs locally in your browser.</p>
+<div class="links"><a href="index.html">← Embedding lab</a><a href="vlm.html">VLM playground</a><a href="report.html">Batch report</a><a href="docs.html">Docs &amp; CLI</a><a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">↗ GitHub</a></div>
+
+<div class="controls">
+  <div class="control-group">
+    <label>Encoder model</label>
+    <select id="model-select">
+      <option value="Xenova/clip-vit-base-patch32">CLIP ViT-Base/32 (512-d, image + text, ~100MB)</option>
+      <option value="Xenova/siglip-base-patch16-224">SigLIP Base/16 (768-d, image only here, ~370MB)</option>
+      <option value="Xenova/dinov2-small">DINOv2 Small (384-d, image only, ~85MB)</option>
+      <option value="Xenova/clip-vit-large-patch14-336">CLIP Large/14 @336 (768-d, image + text, ~600MB)</option>
+    </select>
+  </div>
+  <div class="control-group"><label>Backend</label><span id="backend-badge" style="font-size:.8rem;color:var(--muted)">not loaded</span></div>
+</div>
+
+<div class="status" id="status"></div>
+<div class="download-panel" id="download-panel">
+  <div class="dl-overall"><span>Downloading model <b id="dl-model-name"></b></span><span class="dl-speed" id="dl-speed"></span></div>
+  <div class="download-bar"><div class="download-bar-fill" id="dl-overall-bar" style="width:0%"></div></div>
+  <div id="dl-files"></div>
+</div>
+
+<div class="slots">
+  <div class="slot" id="slot-A">
+    <h3><span class="badge">A</span> Input A</h3>
+    <div class="tabs"><button class="active" data-tab="image">Image</button><button data-tab="text">Text</button></div>
+    <div class="imginput">
+      <div class="dropzone"><p>Drop an image, or click to choose</p><input type="file" accept="image/*"></div>
+      <div class="quickpick"></div>
+    </div>
+    <div class="textinput">
+      <input type="text" placeholder='e.g. "a photo of a kitten"' value="a photo of a kitten">
+      <button class="small">Embed text</button>
+    </div>
+    <div class="slot-meta"><span>Nothing embedded yet.</span></div>
+    <div class="slot-err"></div>
+  </div>
+  <div class="slot" id="slot-B">
+    <h3><span class="badge">B</span> Input B <span style="font-weight:normal;font-size:.72rem;color:var(--muted)">(optional — enables diff &amp; morph)</span></h3>
+    <div class="tabs"><button class="active" data-tab="image">Image</button><button data-tab="text">Text</button></div>
+    <div class="imginput">
+      <div class="dropzone"><p>Drop an image, or click to choose</p><input type="file" accept="image/*"></div>
+      <div class="quickpick"></div>
+    </div>
+    <div class="textinput">
+      <input type="text" placeholder='e.g. "a screenshot of a webpage"' value="a screenshot of a webpage">
+      <button class="small">Embed text</button>
+    </div>
+    <div class="slot-meta"><span>Nothing embedded yet.</span></div>
+    <div class="slot-err"></div>
+  </div>
+</div>
+
+<h2>Visualization</h2>
+<div class="controls">
+  <div class="control-group"><label>Mode</label><select id="mode-select"></select></div>
+  <div class="control-group"><label>Colormap</label><select id="cmap-select">
+    <option value="viridis">viridis</option><option value="plasma">plasma</option><option value="magma">magma</option><option value="coolwarm">coolwarm</option><option value="gray">gray</option>
+  </select></div>
+  <div class="control-group"><label>Normalization</label><select id="norm-select">
+    <option value="zscore">z-score sigmoid</option><option value="symmetric">symmetric (0 → mid)</option><option value="minmax">min–max</option><option value="clip">clip ±0.5</option>
+  </select></div>
+  <div class="control-group"><label>Dim order</label><select id="order-select">
+    <option value="natural">natural</option><option value="sorted">sorted by value</option><option value="magnitude">sorted by |value|</option><option value="shuffled">shuffled (seeded)</option>
+  </select></div>
+  <div class="control-group"><label>Smooth pixels</label><select id="smooth-select"><option value="0">crisp (pixelated)</option><option value="1">smooth</option></select></div>
+  <div class="control-group"><label>Projection seed</label><input type="number" id="seed-input" value="1234" style="width:80px"></div>
+</div>
+<p class="mode-desc" id="mode-desc"></p>
+
+<div class="viz-grid" id="viz-grid">
+  <div class="viz-panel" id="viz-A" style="display:none">
+    <div class="viz-title" id="viz-A-title">A</div>
+    <canvas></canvas>
+    <div class="readout">&nbsp;</div>
+    <div class="viz-actions"><button class="small secondary" data-act="png">Save PNG</button><button class="small secondary" data-act="json">Copy vector JSON</button></div>
+  </div>
+  <div class="viz-panel" id="viz-B" style="display:none">
+    <div class="viz-title" id="viz-B-title">B</div>
+    <canvas></canvas>
+    <div class="readout">&nbsp;</div>
+    <div class="viz-actions"><button class="small secondary" data-act="png">Save PNG</button><button class="small secondary" data-act="json">Copy vector JSON</button></div>
+  </div>
+</div>
+
+<div id="compare-section">
+  <h2>A vs B</h2>
+  <div class="cos-card">
+    <div class="stat"><b id="cos-val">–</b><span>cosine similarity</span></div>
+    <div class="stat"><b id="dim-val">–</b><span>dimensions</span></div>
+  </div>
+  <div class="viz-grid">
+    <div class="viz-panel" id="viz-D">
+      <div class="viz-title">Difference (A − B)</div>
+      <canvas></canvas>
+      <div class="readout">&nbsp;</div>
+      <div class="viz-actions"><button class="small secondary" data-act="png">Save PNG</button></div>
+    </div>
+    <div class="viz-panel" id="viz-M">
+      <div class="viz-title" id="morph-title">Morph (slerp A→B) — t = 0.50</div>
+      <canvas></canvas>
+      <div class="readout">&nbsp;</div>
+      <div class="viz-actions"><button class="small secondary" data-act="png">Save PNG</button></div>
+    </div>
+  </div>
+  <div class="morph-row">
+    <span class="tval">A (t=0)</span>
+    <input type="range" id="morph-t" min="0" max="100" value="50">
+    <span class="tval" style="text-align:right">B (t=1)</span>
+  </div>
+</div>
+
+<p class="note">Every panel is the <em>same</em> vector drawn differently — none of these images is "what the model sees"; they're lenses on a point in embedding space. Hover any pixel to see which dimension it is and its value. Image embeddings are mean-pooled and L2-normalized exactly like the <a href="index.html">embedding lab</a> (shared <code>lib/</code> core); CLIP text embeddings share the image space, so a caption and a photo can be meaningfully compared and morphed. Powered by <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js</a>, model blobs cached by the service worker. <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
+
+<script type="module">
+import { pipeline, env, RawImage, AutoTokenizer, CLIPTextModelWithProjection } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+import { poolEmbedding, renderTransform as coreRender, SIZE } from './lib/experiment.mjs';
+import {
+  cosineSim, l2normalize, slerp, diffVector, normalizeVector, orderIndices, applyOrder,
+  renderGrid, renderBarcode, renderHilbert, renderSimMatrix, renderPhase, renderProjection,
+  flowerPoints, COLORMAPS, MODES,
+} from './lib/vector-viz.mjs';
+
+env.allowLocalModels = false;
+const $ = (id) => document.getElementById(id);
+const log = (...a) => console.log('[vector-viz]', ...a);
+
+// --- State ---
+const slots = { A: null, B: null };   // { vector: Float64Array, label, kind: 'image'|'text', thumb }
+let extractor = null, currentModel = null, backend = 'wasm';
+let textModel = null, textTokenizer = null, currentTextModel = null;
+let morphT = 0.5;
+
+// --- Status & download UI (same pattern as index.html) ---
+const status = $('status');
+function setStatus(msg, cls = 'loading') {
+  status.textContent = msg;
+  status.className = 'status' + (msg ? ' show ' + cls : '');
+  if (msg) log('status:', msg);
+}
+function fmtBytes(b) {
+  if (!b || b < 1024) return (b || 0) + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+  return (b / 1073741824).toFixed(2) + ' GB';
+}
+const dlState = { files: new Map(), lastUpdate: 0, lastLoaded: 0, speed: 0 };
+function updateDownloadUI() {
+  let totalLoaded = 0, totalSize = 0;
+  for (const f of dlState.files.values()) { totalLoaded += f.loaded || 0; totalSize += f.total || 0; }
+  $('dl-overall-bar').style.width = (totalSize ? Math.round(totalLoaded / totalSize * 100) : 0) + '%';
+  const now = Date.now();
+  if (dlState.lastUpdate && now - dlState.lastUpdate > 500) {
+    dlState.speed = (totalLoaded - dlState.lastLoaded) / ((now - dlState.lastUpdate) / 1000);
+    dlState.lastLoaded = totalLoaded; dlState.lastUpdate = now;
+  } else if (!dlState.lastUpdate) { dlState.lastUpdate = now; dlState.lastLoaded = totalLoaded; }
+  $('dl-speed').textContent = dlState.speed > 0 ? fmtBytes(dlState.speed) + '/s' : '';
+  let html = '';
+  for (const [name, f] of dlState.files) {
+    const fpct = f.total ? Math.round(f.loaded / f.total * 100) : 0;
+    const st = f.done ? 'done' : f.cached ? 'cached' : '';
+    html += `<div class="dl-file ${st}"><span class="dl-name">${name.replace(/^onnx\//, '')}</span><span class="dl-size">${fmtBytes(f.loaded)} / ${fmtBytes(f.total)}</span><div class="dl-filebar"><div class="dl-filebar-fill" style="width:${st ? '100' : fpct}%"></div></div></div>`;
+  }
+  $('dl-files').innerHTML = html;
+}
+function progressCallback(p) {
+  if (p.status === 'initiate') dlState.files.set(p.file, { loaded: 0, total: 0 });
+  else if (p.status === 'progress') dlState.files.set(p.file, { loaded: p.loaded, total: p.total });
+  else if (p.status === 'done') { const f = dlState.files.get(p.file) || {}; f.done = true; dlState.files.set(p.file, f); }
+  updateDownloadUI();
+}
+function startDownloadPanel(name) {
+  dlState.files.clear(); dlState.lastUpdate = 0; dlState.lastLoaded = 0; dlState.speed = 0;
+  $('dl-model-name').textContent = name;
+  $('download-panel').classList.add('show');
+}
+function endDownloadPanel() { $('download-panel').classList.remove('show'); }
+
+// --- Model loading ---
+function supportsText(modelId) { return /clip/i.test(modelId); }
+
+async function ensureImageModel() {
+  const modelId = $('model-select').value;
+  if (extractor && currentModel === modelId) return;
+  startDownloadPanel(modelId);
+  setStatus(`Loading ${modelId}…`);
+  const t0 = performance.now();
+  // Probe for a real GPU adapter BEFORE creating the session: if pipeline() fails mid-init on
+  // webgpu, ONNX Runtime is left in a state where the wasm retry also reports "no available
+  // backend found", so catch-and-retry is not a safe fallback.
+  backend = 'wasm';
+  try { if (navigator.gpu && await navigator.gpu.requestAdapter()) backend = 'webgpu'; } catch { /* wasm */ }
+  const opts = { progress_callback: progressCallback };
+  if (backend === 'webgpu') opts.device = 'webgpu';
+  extractor = await pipeline('image-feature-extraction', modelId, opts);
+  currentModel = modelId;
+  endDownloadPanel();
+  $('backend-badge').textContent = backend.toUpperCase();
+  log(`image model ${modelId} loaded in ${Math.round(performance.now() - t0)}ms on ${backend}`);
+  setStatus(`${modelId} loaded (${backend.toUpperCase()}).`, '');
+  setTimeout(() => setStatus(''), 2500);
+}
+
+async function ensureTextModel() {
+  const modelId = $('model-select').value;
+  if (!supportsText(modelId)) throw new Error(`Text embedding needs a CLIP model — ${modelId} has no text tower wired up here. Switch the encoder to CLIP.`);
+  if (textModel && currentTextModel === modelId) return;
+  startDownloadPanel(modelId + ' (text tower)');
+  setStatus(`Loading ${modelId} text tower…`);
+  const t0 = performance.now();
+  textTokenizer = await AutoTokenizer.from_pretrained(modelId, { progress_callback: progressCallback });
+  textModel = await CLIPTextModelWithProjection.from_pretrained(modelId, { progress_callback: progressCallback });
+  currentTextModel = modelId;
+  endDownloadPanel();
+  log(`text model ${modelId} loaded in ${Math.round(performance.now() - t0)}ms`);
+  setStatus(`${modelId} text tower loaded.`, '');
+  setTimeout(() => setStatus(''), 2500);
+}
+
+// --- Embedding ---
+function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+
+async function embedImageEl(img) {
+  await ensureImageModel();
+  const canvas = mkCanvas(SIZE, SIZE);
+  coreRender(canvas.getContext('2d'), img, {}, SIZE);   // identical preprocessing to the lab
+  const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, SIZE, SIZE);
+  const out = await extractor(new RawImage(data, width, height, 4));
+  const vec = poolEmbedding(out.data, out.dims);
+  return { vec, thumb: canvas.toDataURL('image/jpeg', 0.85) };
+}
+
+async function embedText(text) {
+  await ensureTextModel();
+  const inputs = textTokenizer([text], { padding: true, truncation: true });
+  const { text_embeds } = await textModel(inputs);
+  return l2normalize(text_embeds.data);   // same normalization as the pooled image vectors
+}
+
+// --- Slots UI ---
+function slotEls(key) {
+  const root = $('slot-' + key);
+  return {
+    root,
+    tabs: root.querySelectorAll('.tabs button'),
+    imgWrap: root.querySelector('.imginput'),
+    textWrap: root.querySelector('.textinput'),
+    dropzone: root.querySelector('.dropzone'),
+    fileInput: root.querySelector('input[type=file]'),
+    quickpick: root.querySelector('.quickpick'),
+    textInput: root.querySelector('.textinput input'),
+    textBtn: root.querySelector('.textinput button'),
+    meta: root.querySelector('.slot-meta'),
+    err: root.querySelector('.slot-err'),
+  };
+}
+
+function setSlotError(key, msg) {
+  const { err } = slotEls(key);
+  err.textContent = msg || '';
+  err.classList.toggle('show', !!msg);
+  if (msg) console.error(`[vector-viz] slot ${key}:`, msg);
+}
+
+function setSlot(key, data) {
+  slots[key] = data;
+  const { meta } = slotEls(key);
+  meta.innerHTML = data.thumb
+    ? `<img src="${data.thumb}" alt=""><span><b>${data.label}</b><br>${data.vec.length}-d · ${data.kind} · ${data.model.split('/')[1] || data.model}</span>`
+    : `<span><b>“${data.label}”</b><br>${data.vec.length}-d · ${data.kind} · ${data.model.split('/')[1] || data.model}</span>`;
+  log(`slot ${key} ← ${data.kind} "${data.label}" (${data.vec.length}-d)`);
+  renderAll();
+}
+
+async function loadImageIntoSlot(key, src, label) {
+  setSlotError(key, '');
+  try {
+    setStatus(`Embedding image for ${key}…`);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('Image failed to load')); img.src = src; });
+    const { vec, thumb } = await embedImageEl(img);
+    setSlot(key, { vec, label, kind: 'image', thumb, model: currentModel });
+    setStatus('');
+  } catch (e) {
+    setStatus('');
+    setSlotError(key, e.message || String(e));
+  }
+}
+
+for (const key of ['A', 'B']) {
+  const els = slotEls(key);
+  els.tabs.forEach((btn) => btn.addEventListener('click', () => {
+    els.tabs.forEach((b) => b.classList.toggle('active', b === btn));
+    const isText = btn.dataset.tab === 'text';
+    els.textWrap.classList.toggle('show', isText);
+    els.imgWrap.classList.toggle('hide', isText);
+  }));
+  els.dropzone.addEventListener('click', () => els.fileInput.click());
+  els.dropzone.addEventListener('dragover', (e) => { e.preventDefault(); els.dropzone.classList.add('dragover'); });
+  els.dropzone.addEventListener('dragleave', () => els.dropzone.classList.remove('dragover'));
+  els.dropzone.addEventListener('drop', (e) => {
+    e.preventDefault(); els.dropzone.classList.remove('dragover');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) loadImageIntoSlot(key, URL.createObjectURL(f), f.name);
+  });
+  els.fileInput.addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if (f) loadImageIntoSlot(key, URL.createObjectURL(f), f.name);
+  });
+  els.textBtn.addEventListener('click', async () => {
+    const text = els.textInput.value.trim();
+    if (!text) return;
+    setSlotError(key, '');
+    try {
+      setStatus(`Embedding text for ${key}…`);
+      const vec = await embedText(text);
+      setSlot(key, { vec, label: text, kind: 'text', thumb: null, model: currentTextModel });
+      setStatus('');
+    } catch (e) {
+      setStatus('');
+      setSlotError(key, e.message || String(e));
+    }
+  });
+  els.textInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') els.textBtn.click(); });
+}
+
+// Quick-pick thumbnails from the lab's test corpus
+fetch('test-images/manifest.json').then((r) => r.json()).then((files) => {
+  for (const key of ['A', 'B']) {
+    const { quickpick } = slotEls(key);
+    quickpick.innerHTML = files.filter((f) => f !== 'manifest.json').map((f) =>
+      `<img src="test-images/${f}" title="${f}" loading="lazy" data-file="${f}">`).join('');
+    quickpick.addEventListener('click', (e) => {
+      const f = e.target?.dataset?.file;
+      if (f) loadImageIntoSlot(key, 'test-images/' + f, f);
+    });
+  }
+}).catch((e) => console.warn('[vector-viz] quickpick manifest failed:', e));
+
+// --- Visualization ---
+const modeSelect = $('mode-select');
+modeSelect.innerHTML = MODES.map((m) => `<option value="${m.key}">${m.label}</option>`).join('');
+function currentMode() { return MODES.find((m) => m.key === modeSelect.value) || MODES[0]; }
+function updateModeDesc() { $('mode-desc').textContent = currentMode().desc; }
+updateModeDesc();
+
+function vizSettings() {
+  return {
+    mode: modeSelect.value,
+    cmap: COLORMAPS[$('cmap-select').value] || COLORMAPS.viridis,
+    norm: $('norm-select').value,
+    order: $('order-select').value,
+    smooth: $('smooth-select').value === '1',
+    seed: parseInt($('seed-input').value) || 1234,
+  };
+}
+
+// Render one vector into a panel canvas; wires the hover readout via buf.map.
+function renderVector(panelId, vec, { forceDiverging = false } = {}) {
+  const panel = $(panelId);
+  const canvas = panel.querySelector('canvas');
+  const readout = panel.querySelector('.readout');
+  const s = vizSettings();
+  const idx = orderIndices(vec, s.order, 42);
+  const ordered = applyOrder(vec, idx);
+  const norm = normalizeVector(ordered, forceDiverging ? 'symmetric' : s.norm);
+  const cmap = forceDiverging ? COLORMAPS.coolwarm : s.cmap;
+  let buf = null, flower = null;
+  switch (s.mode) {
+    case 'rgb-grid': buf = renderGrid(norm, { rgb: true, dimIndex: idx }); break;
+    case 'gray-grid': buf = renderGrid(norm, { colormap: cmap, dimIndex: idx }); break;
+    case 'hilbert': buf = renderHilbert(norm, { colormap: cmap, dimIndex: idx }); break;
+    case 'hilbert-rgb': buf = renderHilbert(norm, { rgb: true, dimIndex: idx }); break;
+    case 'barcode': buf = renderBarcode(norm, { colormap: cmap, dimIndex: idx }); break;
+    case 'simmatrix': buf = renderSimMatrix(ordered, { colormap: COLORMAPS.coolwarm }); break;
+    case 'phase': buf = renderPhase(ordered, { dimIndex: idx }); break;
+    case 'projection': buf = renderProjection(ordered, { size: 64, seed: s.seed, colormap: cmap }); break;
+    case 'flower': flower = flowerPoints(norm); break;
+  }
+  const DISPLAY = 360;
+  if (flower) {
+    canvas.width = DISPLAY; canvas.height = DISPLAY;
+    canvas.classList.remove('pixelated');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, DISPLAY, DISPLAY);
+    ctx.save();
+    ctx.translate(DISPLAY / 2, DISPLAY / 2);
+    ctx.scale(DISPLAY / 2.2, DISPLAY / 2.2);
+    ctx.beginPath();
+    flower.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+    ctx.closePath();
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4b3aff';
+    ctx.fillStyle = accent + '44';
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2.2 / DISPLAY;
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+    canvas.onmousemove = null;
+    readout.textContent = `${vec.length} spokes — radius = normalized value`;
+    canvas._exportCanvas = canvas;
+    return;
+  }
+  // blit the low-res buffer, upscaled
+  const off = mkCanvas(buf.width, buf.height);
+  off.getContext('2d').putImageData(new ImageData(buf.pixels, buf.width, buf.height), 0, 0);
+  const isBar = s.mode === 'barcode';
+  const w = isBar ? Math.min(720, buf.width) : DISPLAY;
+  const h = isBar ? 90 : Math.round(DISPLAY * (buf.height / buf.width));
+  canvas.width = w; canvas.height = h;
+  canvas.classList.toggle('pixelated', !s.smooth);
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = s.smooth;
+  ctx.drawImage(off, 0, 0, w, h);
+  canvas._exportCanvas = off;
+  readout.textContent = `${buf.width}×${buf.height} px from ${vec.length} dims — hover to inspect`;
+  canvas.onmousemove = (e) => {
+    const r = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) / r.width * buf.width);
+    const y = Math.floor((e.clientY - r.top) / r.height * buf.height);
+    if (x < 0 || y < 0 || x >= buf.width || y >= buf.height) return;
+    if (s.mode === 'simmatrix') {
+      const i = y, j = x;
+      readout.textContent = `dim ${idx[i]} × dim ${idx[j]} → ${(ordered[i] * ordered[j]).toExponential(2)}`;
+    } else {
+      const dim = buf.map[y * buf.width + x];
+      readout.textContent = dim >= 0 ? `dim ${dim} → ${vec[dim].toFixed(4)}` : `(padding)`;
+    }
+  };
+}
+
+function renderAll() {
+  const a = slots.A, bSlot = slots.B;
+  $('viz-A').style.display = a ? '' : 'none';
+  $('viz-B').style.display = bSlot ? '' : 'none';
+  if (a) { $('viz-A-title').textContent = `A — ${a.label}`; renderVector('viz-A', a.vec); }
+  if (bSlot) { $('viz-B-title').textContent = `B — ${bSlot.label}`; renderVector('viz-B', bSlot.vec); }
+  const comparable = a && bSlot && a.vec.length === bSlot.vec.length;
+  $('compare-section').classList.toggle('show', !!comparable);
+  if (a && bSlot && !comparable) setStatus(`A is ${a.vec.length}-d and B is ${bSlot.vec.length}-d (different models) — re-embed one of them to compare.`, 'error');
+  if (comparable) {
+    const cos = cosineSim(a.vec, bSlot.vec);
+    $('cos-val').textContent = cos.toFixed(3);
+    $('dim-val').textContent = a.vec.length;
+    renderVector('viz-D', diffVector(a.vec, bSlot.vec), { forceDiverging: true });
+    const t = morphT;
+    $('morph-title').textContent = `Morph (slerp A→B) — t = ${t.toFixed(2)}`;
+    renderVector('viz-M', slerp(a.vec, bSlot.vec, t));
+    log(`compare: cos(A,B) = ${cos.toFixed(4)}`);
+  }
+}
+
+$('morph-t').addEventListener('input', (e) => {
+  morphT = parseInt(e.target.value) / 100;
+  const a = slots.A, bSlot = slots.B;
+  if (!a || !bSlot || a.vec.length !== bSlot.vec.length) return;
+  $('morph-title').textContent = `Morph (slerp A→B) — t = ${morphT.toFixed(2)}`;
+  renderVector('viz-M', slerp(a.vec, bSlot.vec, morphT));
+});
+
+['mode-select', 'cmap-select', 'norm-select', 'order-select', 'smooth-select', 'seed-input'].forEach((id) =>
+  $(id).addEventListener(id === 'seed-input' ? 'change' : 'input', () => { updateModeDesc(); renderAll(); }));
+
+$('model-select').addEventListener('change', () => {
+  // Vectors from the old model stay on screen (dims may differ); new embeds use the new model.
+  log('model changed to', $('model-select').value);
+});
+
+// Export buttons
+document.querySelectorAll('.viz-panel').forEach((panel) => {
+  panel.addEventListener('click', async (e) => {
+    const act = e.target?.dataset?.act;
+    if (!act) return;
+    const key = panel.id.split('-')[1];
+    const canvas = panel.querySelector('canvas');
+    if (act === 'png') {
+      const src = canvas._exportCanvas || canvas;
+      const a = document.createElement('a');
+      a.download = `vector-viz-${key}-${modeSelect.value}.png`;
+      a.href = src.toDataURL('image/png');
+      a.click();
+    } else if (act === 'json') {
+      const slot = slots[key];
+      if (!slot) return;
+      const json = JSON.stringify({ label: slot.label, kind: slot.kind, model: slot.model, dims: slot.vec.length, vector: Array.from(slot.vec) });
+      try { await navigator.clipboard.writeText(json); setStatus('Vector JSON copied to clipboard.', ''); setTimeout(() => setStatus(''), 2000); }
+      catch { setStatus('Clipboard blocked — check console for the JSON.', 'error'); console.log(json); }
+    }
+  });
+});
+
+// Service worker (same cache as the rest of the lab)
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch((e) => console.warn('[vector-viz] sw:', e));
+log('ready');
+</script>
+</body>
+</html>
