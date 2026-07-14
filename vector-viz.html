@@ -245,7 +245,7 @@ button.small{padding:.25rem .6rem;font-size:.72rem}
 <p class="note">Every panel is the <em>same</em> vector drawn differently — none of these images is "what the model sees"; they're lenses on a point in embedding space. Hover any pixel to see which dimension it is and its value. Image embeddings are mean-pooled and L2-normalized exactly like the <a href="index.html">embedding lab</a> (shared <code>lib/</code> core); CLIP text embeddings share the image space, so a caption and a photo can be meaningfully compared and morphed. Powered by <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js</a>, model blobs cached by the service worker. <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
 
 <script type="module">
-import { pipeline, env, RawImage, AutoTokenizer, CLIPTextModelWithProjection, Florence2ForConditionalGeneration, AutoProcessor } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+import { pipeline, env, RawImage, AutoTokenizer, CLIPTextModelWithProjection, Florence2ForConditionalGeneration, AutoProcessor } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
 import { poolEmbedding, renderTransform as coreRender, SIZE } from './lib/experiment.mjs';
 import {
   cosineSim, l2normalize, slerp, diffVector, normalizeVector, orderIndices, applyOrder,
@@ -405,8 +405,13 @@ function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = 
 
 async function embedImageEl(img, p = {}) {
   await ensureImageModel();
-  const canvas = mkCanvas(SIZE, SIZE);
-  coreRender(canvas.getContext('2d'), img, p, SIZE);   // identical preprocessing to the lab
+  // Render at the model's native input size. Florence's processor works at 768×768 — rendering
+  // at the lab's 224 first makes its processor UPSCALE Chrome's aliased rotate+downscale
+  // artifacts, which alone cost ~0.25 cosine on rotation (verified vs a Node probe where
+  // cairo's cleaner filtering showed no such drop). CLIP/SigLIP/DINOv2 stay at 224.
+  const size = currentModel === 'florence2' ? 768 : SIZE;
+  const canvas = mkCanvas(size, size);
+  coreRender(canvas.getContext('2d'), img, p, size);
   const thumb = canvas.toDataURL('image/jpeg', 0.85);
   if (currentModel === 'florence2') {
     return { vec: await florenceEmbedCanvas(canvas), thumb, canvas };

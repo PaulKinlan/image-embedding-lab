@@ -125,7 +125,7 @@ label.small{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-
 <p class="note">Florence-2 is a sequence-to-sequence model: a DaViT vision encoder turns the image into a grid of tokens, and a small language decoder reads those tokens plus a task prompt (like <code>&lt;OCR&gt;</code>) to write the answer. That token-reading step is why it can transcribe a page a fixed-resolution embedding model cannot. First run downloads ~0.35&nbsp;GB (cached afterwards). Model: <a href="https://huggingface.co/onnx-community/Florence-2-base-ft" target="_blank">Florence-2-base-ft</a>.</p>
 
 <script type="module">
-import { Florence2ForConditionalGeneration, AutoProcessor, AutoTokenizer, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+import { Florence2ForConditionalGeneration, AutoProcessor, AutoTokenizer, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
 import { poolEmbedding, cosineSim, renderTransform as coreRender } from './lib/experiment.mjs';
 
 const $ = (id) => document.getElementById(id);

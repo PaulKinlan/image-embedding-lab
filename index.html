@@ -191,7 +191,7 @@ select#model-select{width:100%;max-width:32rem;padding:.5rem .6rem;font-size:.9r
 
 <script src="gemma4.js"></script>
 <script type="module">
-import { pipeline, env, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+import { pipeline, env, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
 import { poolEmbedding, cosineSim as coreCosine, renderTransform as coreRender, makeTiles, meanPoolVectors, TRANSFORMS, VARIANTS, SIZE, TILE } from './lib/experiment.mjs';
 
 env.allowLocalModels = false;
