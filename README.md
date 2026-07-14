@@ -16,17 +16,22 @@ model can only see as "a document".
 
 The **Vector visualizer** (`vector-viz.html`) goes the other way: instead of measuring an
 embedding, it *draws* one. Embed an image (CLIP/SigLIP/DINOv2) or a text string (CLIP — text and
-image share a space) and render the vector as a 2D image: consecutive triples of dimensions as
-RGB pixels, a heatmap grid, a Hilbert-curve walk (neighbouring dims stay neighbouring pixels), a
-barcode, the vector's self-similarity matrix (vᵢ·vⱼ), dimension pairs as complex phase/magnitude,
-a seeded random-projection "fingerprint" texture, or a radial flower. Normalization, dimension
-ordering, and colormap are all swappable lenses. Load two inputs (any mix of image and text) to
-get the cosine similarity, a diverging diff image, and a slerp **morph slider** between the two
-vectors. Hover any pixel to see which dimension it came from and its value. The pure math lives
-in `lib/vector-viz.mjs` (tested by `scripts/test-vector-viz.mjs`); embeddings use the same
-pooling/normalization as the lab via `lib/experiment.mjs`, so what you see here is exactly the
-vector the lab measures. None of these images is "what the model sees" — they're lenses on a
-point in embedding space; the interesting part is comparing structure across inputs and models.
+image share a space) and render the vector as a 2D image, in fourteen modes: consecutive triples
+of dimensions as RGB pixels, a heatmap grid, Hilbert-curve and square-spiral walks (neighbouring
+dims stay neighbouring pixels), a barcode, an audio-style waveform, the vector's self-similarity
+matrix (vᵢ·vⱼ) and recurrence plot (|vᵢ−vⱼ|), a DFT frequency spectrum of the vector-as-signal,
+dimension pairs as complex phase/magnitude, a seeded random-projection "fingerprint", an
+interference texture (each dimension a golden-angle plane wave), or a radial flower.
+Normalization, dimension ordering, and colormap are all swappable lenses. Load two inputs (any
+mix of image and text) to get the cosine similarity, a diverging diff image, and a slerp **morph
+slider** between the two vectors. A **rotation sweep** re-embeds an image at every angle and
+stacks the vectors into a rotation×dimension image (jointly normalized; delta view highlights
+which dimensions move under rotation), with per-angle cosines and a filmstrip. Hover any pixel to
+see which dimension it came from and its value. The pure math lives in `lib/vector-viz.mjs`
+(tested by `scripts/test-vector-viz.mjs`); embeddings use the same pooling/normalization as the
+lab via `lib/experiment.mjs`, so what you see here is exactly the vector the lab measures. None
+of these images is "what the model sees" — they're lenses on a point in embedding space; the
+interesting part is comparing structure across inputs and models.
 
 ## What this is really about
 

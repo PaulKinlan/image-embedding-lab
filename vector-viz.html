@@ -250,6 +250,7 @@ import {
   cosineSim, l2normalize, slerp, diffVector, normalizeVector, orderIndices, applyOrder,
   renderGrid, renderBarcode, renderHilbert, renderSimMatrix, renderPhase, renderProjection,
   flowerPoints, COLORMAPS, MODES, normalizeJoint, renderStack,
+  renderSpiral, renderRecurrence, renderSpectrum, waveformPoints, renderInterference,
 } from './lib/vector-viz.mjs';
 
 env.allowLocalModels = false;
@@ -494,19 +495,24 @@ function buildViz(vec, s, { forceDiverging = false } = {}) {
   const ordered = applyOrder(vec, idx);
   const norm = normalizeVector(ordered, forceDiverging ? 'symmetric' : s.norm);
   const cmap = forceDiverging ? COLORMAPS.coolwarm : s.cmap;
-  let buf = null, flower = null;
+  let buf = null, flower = null, waveform = null;
   switch (s.mode) {
     case 'rgb-grid': buf = renderGrid(norm, { rgb: true, dimIndex: idx }); break;
     case 'gray-grid': buf = renderGrid(norm, { colormap: cmap, dimIndex: idx }); break;
     case 'hilbert': buf = renderHilbert(norm, { colormap: cmap, dimIndex: idx }); break;
     case 'hilbert-rgb': buf = renderHilbert(norm, { rgb: true, dimIndex: idx }); break;
+    case 'spiral': buf = renderSpiral(norm, { colormap: cmap, dimIndex: idx }); break;
     case 'barcode': buf = renderBarcode(norm, { colormap: cmap, dimIndex: idx }); break;
+    case 'waveform': waveform = waveformPoints(norm); break;
     case 'simmatrix': buf = renderSimMatrix(ordered, { colormap: COLORMAPS.coolwarm }); break;
+    case 'recurrence': buf = renderRecurrence(ordered, { colormap: cmap }); break;
+    case 'spectrum': buf = renderSpectrum(ordered, { colormap: cmap }); break;
     case 'phase': buf = renderPhase(ordered, { dimIndex: idx }); break;
     case 'projection': buf = renderProjection(ordered, { size: 64, seed: s.seed, colormap: cmap }); break;
+    case 'interference': buf = renderInterference(ordered, { size: 96, colormap: cmap }); break;
     case 'flower': flower = flowerPoints(norm); break;
   }
-  return { buf, flower, idx, ordered };
+  return { buf, flower, waveform, idx, ordered };
 }
 
 // Render one vector into a panel canvas; wires the hover readout via buf.map.
@@ -515,8 +521,35 @@ function renderVector(panelId, vec, { forceDiverging = false } = {}) {
   const canvas = panel.querySelector('canvas');
   const readout = panel.querySelector('.readout');
   const s = vizSettings();
-  const { buf, flower, idx, ordered } = buildViz(vec, s, { forceDiverging });
+  const { buf, flower, waveform, idx, ordered } = buildViz(vec, s, { forceDiverging });
   const DISPLAY = 360;
+  if (waveform) {
+    const W = 720, H = 180;
+    canvas.width = W; canvas.height = H;
+    canvas.classList.remove('pixelated');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4b3aff';
+    ctx.strokeStyle = accent; ctx.lineWidth = 1.2;
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();   // midline
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    waveform.forEach(([x, y], i) => {
+      const px = (x + 1) / 2 * W, py = (y + 1) / 2 * H;
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    });
+    ctx.stroke();
+    canvas._exportCanvas = canvas;
+    canvas.onmousemove = (e) => {
+      const r = canvas.getBoundingClientRect();
+      const i = Math.round((e.clientX - r.left) / r.width * (vec.length - 1));
+      if (i < 0 || i >= vec.length) return;
+      readout.textContent = `dim ${idx[i]} → ${vec[idx[i]].toFixed(4)}`;
+    };
+    readout.textContent = `${vec.length} dims as a waveform — hover to inspect`;
+    return;
+  }
   if (flower) {
     canvas.width = DISPLAY; canvas.height = DISPLAY;
     canvas.classList.remove('pixelated');
@@ -560,6 +593,11 @@ function renderVector(panelId, vec, { forceDiverging = false } = {}) {
     if (s.mode === 'simmatrix') {
       const i = y, j = x;
       readout.textContent = `dim ${idx[i]} × dim ${idx[j]} → ${(ordered[i] * ordered[j]).toExponential(2)}`;
+    } else if (s.mode === 'recurrence') {
+      const i = y, j = x;
+      readout.textContent = `|dim ${idx[i]} − dim ${idx[j]}| → ${Math.abs(ordered[i] - ordered[j]).toFixed(4)}`;
+    } else if (s.mode === 'spectrum') {
+      readout.textContent = x === 0 ? 'DC component' : `frequency bin ${x} (${x} cycles across the ${vec.length} dims)`;
     } else {
       const dim = buf.map[y * buf.width + x];
       readout.textContent = dim >= 0 ? `dim ${dim} → ${vec[dim].toFixed(4)}` : `(padding)`;
@@ -680,8 +718,18 @@ function renderSweep() {
     const cos = cosineSim(vectors[0], vectors[i]);
     cell.innerHTML = `<div class="angle">${angles[i]}°</div><img src="${thumbs[i]}" alt="rotated ${angles[i]}°"><div class="cos">cos ${cos.toFixed(3)}</div>`;
     const mini = document.createElement('canvas');
-    const { buf: mbuf, flower } = buildViz(vectors[i], s);
-    if (flower) {
+    const { buf: mbuf, flower, waveform } = buildViz(vectors[i], s);
+    if (waveform) {
+      mini.width = 110; mini.height = 40;
+      const mctx = mini.getContext('2d');
+      mctx.strokeStyle = '#4b3aff'; mctx.lineWidth = 0.8;
+      mctx.beginPath();
+      waveform.forEach(([x, y], j) => {
+        const px = (x + 1) / 2 * 110, py = (y + 1) / 2 * 40;
+        j ? mctx.lineTo(px, py) : mctx.moveTo(px, py);
+      });
+      mctx.stroke();
+    } else if (flower) {
       mini.width = 110; mini.height = 110;
       const mctx = mini.getContext('2d');
       mctx.save(); mctx.translate(55, 55); mctx.scale(50, 50);

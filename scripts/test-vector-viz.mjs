@@ -4,6 +4,8 @@ import {
   orderIndices, applyOrder, ORDERINGS, hilbertD2XY, nextPow2,
   renderGrid, renderBarcode, renderHilbert, renderSimMatrix, renderPhase, renderProjection,
   flowerPoints, COLORMAPS, MODES, normalizeJoint, renderStack,
+  spiralCoords, renderSpiral, renderRecurrence, dftMagnitudes, renderSpectrum,
+  waveformPoints, renderInterference,
 } from "../lib/vector-viz.mjs";
 
 let failures = 0;
@@ -111,7 +113,59 @@ for (const [name, fn] of Object.entries(COLORMAPS)) {
   const [r, gg, bb] = fn(0.5);
   check(`colormap ${name} valid rgb`, [r, gg, bb].every((x) => x >= 0 && x <= 255));
 }
-check(`MODES defined (${MODES.length})`, MODES.length === 9);
+check(`MODES defined (${MODES.length})`, MODES.length === 14);
+
+// Spiral: visits `cells` distinct in-bounds positions for every dim count we use
+for (const n of [171, 384, 512, 768]) {
+  const { side, coords } = spiralCoords(n);
+  const seen = new Set(coords.map(([x, y]) => y * side + x));
+  check(`spiral(${n}) ${coords.length} unique in-bounds cells`,
+    coords.length === n && seen.size === n && coords.every(([x, y]) => x >= 0 && x < side && y >= 0 && y < side));
+}
+{
+  const nv = normalizeVector(fakeVec(512), "zscore");
+  const sp = renderSpiral(nv);
+  check("renderSpiral square", sp.width === sp.height && sp.width === Math.ceil(Math.sqrt(512)));
+  check("renderSpiral map centre = dim 0", sp.map[Math.floor((sp.width - 1) / 2) * sp.width + Math.floor((sp.width - 1) / 2)] === 0);
+}
+
+// Recurrence: n×n, diagonal = zero distance = colormap(0)
+{
+  const v = fakeVec(96);
+  const rc = renderRecurrence(v, { colormap: COLORMAPS.gray });
+  check("recurrence n×n", rc.width === 96 && rc.height === 96);
+  const o = (5 * 96 + 5) * 4;
+  check("recurrence diagonal is 0-distance (black in gray cmap)", rc.pixels[o] === 0 && rc.pixels[o + 3] === 255);
+}
+
+// DFT: a pure cosine concentrates energy in its own bin
+{
+  const n = 128, freq = 7;
+  const sig = new Float64Array(n);
+  for (let i = 0; i < n; i++) sig[i] = Math.cos((2 * Math.PI * freq * i) / n);
+  const mags = dftMagnitudes(sig);
+  let argmax = 1;
+  for (let k = 1; k < mags.length; k++) if (mags[k] > mags[argmax]) argmax = k;
+  check(`dft pure tone lands in bin ${freq}`, argmax === freq);
+  const sp = renderSpectrum(sig);
+  check("spectrum geometry", sp.width === Math.floor(n / 2) + 1 && sp.height === 96);
+}
+
+// Waveform: n points spanning x∈[-1,1], y bounded
+{
+  const wf = waveformPoints(normalizeVector(fakeVec(512), "minmax"));
+  check("waveform n points, x spans [-1,1]", wf.length === 512 && wf[0][0] === -1 && wf[511][0] === 1
+    && wf.every(([x, y]) => Math.abs(y) <= 1));
+}
+
+// Interference: deterministic + vector-sensitive
+{
+  const i1 = renderInterference(fakeVec(384), { size: 24 });
+  const i2 = renderInterference(fakeVec(384), { size: 24 });
+  const i3 = renderInterference(fakeVec(384, 55), { size: 24 });
+  check("interference deterministic", i1.pixels.every((x, i) => x === i2.pixels[i]));
+  check("interference vector-sensitive", !i1.pixels.every((x, i) => x === i3.pixels[i]));
+}
 
 // Joint normalization: shared params across rows (a constant offset between rows must survive)
 {
