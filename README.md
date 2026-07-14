@@ -15,8 +15,10 @@ an image to one vector, a VLM turns it into text, so you can watch it read a pag
 model can only see as "a document".
 
 The **Vector visualizer** (`vector-viz.html`) goes the other way: instead of measuring an
-embedding, it *draws* one. Embed an image (CLIP/SigLIP/DINOv2) or a text string (CLIP — text and
-image share a space) and render the vector as a 2D image, in fourteen modes: consecutive triples
+embedding, it *draws* one. Embed an image (CLIP/SigLIP/DINOv2, or Florence-2's DaViT encoder —
+which, being a VLM, also captions each image it embeds, so you see the model's vector *and* what
+it says it sees) or a text string (CLIP — text and image share a space) and render the vector as
+a 2D image, in fourteen modes: consecutive triples
 of dimensions as RGB pixels, a heatmap grid, Hilbert-curve and square-spiral walks (neighbouring
 dims stay neighbouring pixels), a barcode, an audio-style waveform, the vector's self-similarity
 matrix (vᵢ·vⱼ) and recurrence plot (|vᵢ−vⱼ|), a DFT frequency spectrum of the vector-as-signal,

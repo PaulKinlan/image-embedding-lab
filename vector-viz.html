@@ -102,7 +102,7 @@ button.small{padding:.25rem .6rem;font-size:.72rem}
 </head>
 <body>
 <h1>Vector Visualizer</h1>
-<p class="sub">What does an embedding <em>look</em> like? Take a CLIP/SigLIP/DINOv2 vector from an image — or a CLIP vector from text — and map its hundreds of dimensions onto a 2D image: consecutive triples as RGB pixels, Hilbert-curve walks, self-similarity matrices, phase wheels. Load two inputs to see their diff and morph between them. Everything runs locally in your browser.</p>
+<p class="sub">What does an embedding <em>look</em> like? Take a CLIP/SigLIP/DINOv2/Florence-2 vector from an image — or a CLIP vector from text — and map its hundreds of dimensions onto a 2D image: consecutive triples as RGB pixels, Hilbert-curve walks, self-similarity matrices, phase wheels. Load two inputs to see their diff and morph between them. With Florence-2 (a VLM) each image also gets a caption — the model's embedding <em>and</em> what it says it sees, side by side. Everything runs locally in your browser.</p>
 <div class="links"><a href="index.html">← Embedding lab</a><a href="vlm.html">VLM playground</a><a href="report.html">Batch report</a><a href="docs.html">Docs &amp; CLI</a><a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">↗ GitHub</a></div>
 
 <div class="controls">
@@ -113,6 +113,7 @@ button.small{padding:.25rem .6rem;font-size:.72rem}
       <option value="Xenova/siglip-base-patch16-224">SigLIP Base/16 (768-d, image only here, ~370MB)</option>
       <option value="Xenova/dinov2-small">DINOv2 Small (384-d, image only, ~85MB)</option>
       <option value="Xenova/clip-vit-large-patch14-336">CLIP Large/14 @336 (768-d, image + text, ~600MB)</option>
+      <option value="florence2">Florence-2 VLM (768-d DaViT, image + auto-caption, ~350MB)</option>
     </select>
   </div>
   <div class="control-group"><label>Backend</label><span id="backend-badge" style="font-size:.8rem;color:var(--muted)">not loaded</span></div>
@@ -244,7 +245,7 @@ button.small{padding:.25rem .6rem;font-size:.72rem}
 <p class="note">Every panel is the <em>same</em> vector drawn differently — none of these images is "what the model sees"; they're lenses on a point in embedding space. Hover any pixel to see which dimension it is and its value. Image embeddings are mean-pooled and L2-normalized exactly like the <a href="index.html">embedding lab</a> (shared <code>lib/</code> core); CLIP text embeddings share the image space, so a caption and a photo can be meaningfully compared and morphed. Powered by <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js</a>, model blobs cached by the service worker. <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
 
 <script type="module">
-import { pipeline, env, RawImage, AutoTokenizer, CLIPTextModelWithProjection } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+import { pipeline, env, RawImage, AutoTokenizer, CLIPTextModelWithProjection, Florence2ForConditionalGeneration, AutoProcessor } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
 import { poolEmbedding, renderTransform as coreRender, SIZE } from './lib/experiment.mjs';
 import {
   cosineSim, l2normalize, slerp, diffVector, normalizeVector, orderIndices, applyOrder,
@@ -309,10 +310,60 @@ function startDownloadPanel(name) {
 function endDownloadPanel() { $('download-panel').classList.remove('show'); }
 
 // --- Model loading ---
-function supportsText(modelId) { return /clip/i.test(modelId); }
+function supportsText(modelId) { return /clip/i.test(modelId) && modelId !== 'florence2'; }
+
+// Florence-2 (VLM): DaViT vision encoder → 577 tokens → mean-pool 768-d, same pooling as the
+// VLM playground. Being a seq2seq model it can also SAY what it sees — we caption every image
+// it embeds.
+const FLORENCE_ID = 'onnx-community/Florence-2-base-ft';
+let florence = null;   // { model, processor, tokenizer }
+
+async function ensureFlorence() {
+  if (florence) return;
+  startDownloadPanel('Florence-2 (~350MB first time)');
+  setStatus('Loading Florence-2…');
+  const t0 = performance.now();
+  backend = 'wasm';
+  try { if (navigator.gpu && await navigator.gpu.requestAdapter()) backend = 'webgpu'; } catch { /* wasm */ }
+  const opts = backend === 'webgpu'
+    ? { dtype: { embed_tokens: 'fp16', vision_encoder: 'fp16', encoder_model: 'q4', decoder_model_merged: 'q4' }, device: 'webgpu', progress_callback: progressCallback }
+    : { dtype: { embed_tokens: 'fp32', vision_encoder: 'fp32', encoder_model: 'q8', decoder_model_merged: 'q8' }, progress_callback: progressCallback };
+  const model = await Florence2ForConditionalGeneration.from_pretrained(FLORENCE_ID, opts);
+  const processor = await AutoProcessor.from_pretrained(FLORENCE_ID);
+  const tokenizer = await AutoTokenizer.from_pretrained(FLORENCE_ID);
+  florence = { model, processor, tokenizer };
+  endDownloadPanel();
+  $('backend-badge').textContent = backend.toUpperCase();
+  log(`Florence-2 loaded in ${Math.round(performance.now() - t0)}ms on ${backend}`);
+  setStatus(`Florence-2 loaded (${backend.toUpperCase()}).`, '');
+  setTimeout(() => setStatus(''), 2500);
+}
+
+async function florenceEmbedCanvas(canvas) {
+  const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+  const raw = new RawImage(data, width, height, 4);
+  const vin = await florence.processor(raw);
+  const feats = await florence.model.encode_image({ pixel_values: vin.pixel_values });
+  return poolEmbedding(feats.data, feats.dims);
+}
+
+async function florenceCaption(canvas) {
+  const { model, processor, tokenizer } = florence;
+  const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+  const raw = new RawImage(data, width, height, 4);
+  const task = '<CAPTION>';
+  const prompts = processor.construct_prompts(task);
+  const visionInputs = await processor(raw);
+  const textInputs = tokenizer(prompts);
+  const ids = await model.generate({ ...textInputs, ...visionInputs, max_new_tokens: 64, num_beams: 1, do_sample: false });
+  const text = tokenizer.batch_decode(ids, { skip_special_tokens: false })[0];
+  const result = processor.post_process_generation(text, task, raw.size);
+  return (result[task] || '').trim();
+}
 
 async function ensureImageModel() {
   const modelId = $('model-select').value;
+  if (modelId === 'florence2') { await ensureFlorence(); currentModel = 'florence2'; return; }
   if (extractor && currentModel === modelId) return;
   startDownloadPanel(modelId);
   setStatus(`Loading ${modelId}…`);
@@ -356,10 +407,14 @@ async function embedImageEl(img, p = {}) {
   await ensureImageModel();
   const canvas = mkCanvas(SIZE, SIZE);
   coreRender(canvas.getContext('2d'), img, p, SIZE);   // identical preprocessing to the lab
+  const thumb = canvas.toDataURL('image/jpeg', 0.85);
+  if (currentModel === 'florence2') {
+    return { vec: await florenceEmbedCanvas(canvas), thumb, canvas };
+  }
   const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, SIZE, SIZE);
   const out = await extractor(new RawImage(data, width, height, 4));
   const vec = poolEmbedding(out.data, out.dims);
-  return { vec, thumb: canvas.toDataURL('image/jpeg', 0.85) };
+  return { vec, thumb, canvas };
 }
 
 async function embedText(text) {
@@ -394,13 +449,17 @@ function setSlotError(key, msg) {
   if (msg) console.error(`[vector-viz] slot ${key}:`, msg);
 }
 
+function escapeHtml(s) { const d = document.createElement('span'); d.textContent = s; return d.innerHTML; }
+
 function setSlot(key, data) {
   slots[key] = data;
   const { meta } = slotEls(key);
+  const modelName = data.model === 'florence2' ? 'Florence-2' : (data.model.split('/')[1] || data.model);
+  const captionLine = data.caption ? `<br><i>“${escapeHtml(data.caption)}” — what the VLM sees</i>` : '';
   meta.innerHTML = data.thumb
-    ? `<img src="${data.thumb}" alt=""><span><b>${data.label}</b><br>${data.vec.length}-d · ${data.kind} · ${data.model.split('/')[1] || data.model}</span>`
-    : `<span><b>“${data.label}”</b><br>${data.vec.length}-d · ${data.kind} · ${data.model.split('/')[1] || data.model}</span>`;
-  log(`slot ${key} ← ${data.kind} "${data.label}" (${data.vec.length}-d)`);
+    ? `<img src="${data.thumb}" alt=""><span><b>${escapeHtml(data.label)}</b><br>${data.vec.length}-d · ${data.kind} · ${modelName}${captionLine}</span>`
+    : `<span><b>“${escapeHtml(data.label)}”</b><br>${data.vec.length}-d · ${data.kind} · ${modelName}</span>`;
+  log(`slot ${key} ← ${data.kind} "${data.label}" (${data.vec.length}-d)${data.caption ? ` caption: "${data.caption}"` : ''}`);
   renderAll();
 }
 
@@ -411,9 +470,21 @@ async function loadImageIntoSlot(key, src, label) {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('Image failed to load')); img.src = src; });
-    const { vec, thumb } = await embedImageEl(img);
-    setSlot(key, { vec, label, kind: 'image', thumb, model: currentModel, img });
+    const { vec, thumb, canvas } = await embedImageEl(img);
+    const slotData = { vec, label, kind: 'image', thumb, model: currentModel, img };
+    setSlot(key, slotData);
     setStatus('');
+    // Florence-2 is a VLM: it doesn't just embed the image, it can say what it sees.
+    if (currentModel === 'florence2') {
+      setStatus(`Captioning ${key} with Florence-2…`);
+      try {
+        slotData.caption = await florenceCaption(canvas);
+        setSlot(key, slotData);
+      } catch (capErr) {
+        console.warn('[vector-viz] caption failed:', capErr);
+      }
+      setStatus('');
+    }
   } catch (e) {
     setStatus('');
     setSlotError(key, e.message || String(e));
