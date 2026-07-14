@@ -85,6 +85,19 @@ button.small{padding:.25rem .6rem;font-size:.72rem}
 .note{font-size:.75rem;color:var(--muted);margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)}
 #compare-section,#morph-section{display:none}
 #compare-section.show,#morph-section.show{display:block}
+#rotation-section{display:none}
+#rotation-section.show{display:block}
+.stack-panel{text-align:center;margin:1rem 0}
+.stack-panel canvas{max-width:100%;border-radius:.4rem;border:1px solid var(--border);image-rendering:pixelated}
+.stack-panel .readout{font-size:.72rem;color:var(--muted);min-height:1.2em;font-variant-numeric:tabular-nums;margin-top:.3rem}
+.stack-labels{display:flex;flex-direction:column;justify-content:space-between;font-size:.62rem;color:var(--muted);text-align:right;padding:1px 0;font-variant-numeric:tabular-nums}
+.stack-wrap{display:grid;grid-template-columns:auto 1fr;gap:.4rem;align-items:stretch;max-width:820px;margin:0 auto}
+.filmstrip{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.8rem;margin:1rem 0}
+.filmstrip .cell{text-align:center}
+.filmstrip .cell img{width:56px;height:56px;border-radius:.3rem;border:1px solid var(--border);background:#fff}
+.filmstrip .cell canvas{max-width:100%;border-radius:.3rem;border:1px solid var(--border);image-rendering:pixelated;margin-top:.25rem}
+.filmstrip .cell .angle{font-size:.72rem;font-weight:600}
+.filmstrip .cell .cos{font-size:.7rem;color:var(--muted);font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -202,6 +215,32 @@ button.small{padding:.25rem .6rem;font-size:.72rem}
   </div>
 </div>
 
+<div id="rotation-section">
+  <h2>Rotation sweep</h2>
+  <p class="mode-desc">Re-embed the image at each rotation and stack the vectors into one picture: each row is one angle's embedding, each column one dimension (jointly normalized, so row-to-row shifts are real). The delta view subtracts the 0° row — dimensions that "move" under rotation light up.</p>
+  <div class="controls">
+    <div class="control-group"><label>Image</label><select id="rot-source"><option value="A">Input A</option><option value="B">Input B</option></select></div>
+    <div class="control-group"><label>Step</label><select id="rot-step">
+      <option value="45">45° (8 embeds)</option><option value="30" selected>30° (12 embeds)</option><option value="15">15° (24 embeds)</option><option value="90">90° (4 embeds)</option>
+    </select></div>
+    <div class="control-group"><label>Stack view</label><select id="rot-view">
+      <option value="absolute">absolute values</option><option value="delta" selected>delta vs 0°</option>
+    </select></div>
+    <button id="rot-run">Run sweep</button>
+  </div>
+  <div class="status" id="rot-status"></div>
+  <div id="rot-results" style="display:none">
+    <div class="stack-panel">
+      <div class="viz-title">Rotation × dimension</div>
+      <div class="stack-wrap"><div class="stack-labels" id="rot-labels"></div><canvas id="rot-stack"></canvas></div>
+      <div class="readout" id="rot-readout">&nbsp;</div>
+      <div class="viz-actions" style="justify-content:center;display:flex;gap:.4rem;margin-top:.35rem"><button class="small secondary" id="rot-png">Save PNG</button></div>
+    </div>
+    <div class="viz-title" style="text-align:center;margin-top:1rem">Each rotation in the current mode (cosine vs 0°)</div>
+    <div class="filmstrip" id="rot-filmstrip"></div>
+  </div>
+</div>
+
 <p class="note">Every panel is the <em>same</em> vector drawn differently — none of these images is "what the model sees"; they're lenses on a point in embedding space. Hover any pixel to see which dimension it is and its value. Image embeddings are mean-pooled and L2-normalized exactly like the <a href="index.html">embedding lab</a> (shared <code>lib/</code> core); CLIP text embeddings share the image space, so a caption and a photo can be meaningfully compared and morphed. Powered by <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js</a>, model blobs cached by the service worker. <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
 
 <script type="module">
@@ -210,7 +249,7 @@ import { poolEmbedding, renderTransform as coreRender, SIZE } from './lib/experi
 import {
   cosineSim, l2normalize, slerp, diffVector, normalizeVector, orderIndices, applyOrder,
   renderGrid, renderBarcode, renderHilbert, renderSimMatrix, renderPhase, renderProjection,
-  flowerPoints, COLORMAPS, MODES,
+  flowerPoints, COLORMAPS, MODES, normalizeJoint, renderStack,
 } from './lib/vector-viz.mjs';
 
 env.allowLocalModels = false;
@@ -312,10 +351,10 @@ async function ensureTextModel() {
 // --- Embedding ---
 function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 
-async function embedImageEl(img) {
+async function embedImageEl(img, p = {}) {
   await ensureImageModel();
   const canvas = mkCanvas(SIZE, SIZE);
-  coreRender(canvas.getContext('2d'), img, {}, SIZE);   // identical preprocessing to the lab
+  coreRender(canvas.getContext('2d'), img, p, SIZE);   // identical preprocessing to the lab
   const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, SIZE, SIZE);
   const out = await extractor(new RawImage(data, width, height, 4));
   const vec = poolEmbedding(out.data, out.dims);
@@ -372,7 +411,7 @@ async function loadImageIntoSlot(key, src, label) {
     img.crossOrigin = 'anonymous';
     await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('Image failed to load')); img.src = src; });
     const { vec, thumb } = await embedImageEl(img);
-    setSlot(key, { vec, label, kind: 'image', thumb, model: currentModel });
+    setSlot(key, { vec, label, kind: 'image', thumb, model: currentModel, img });
     setStatus('');
   } catch (e) {
     setStatus('');
@@ -448,12 +487,9 @@ function vizSettings() {
   };
 }
 
-// Render one vector into a panel canvas; wires the hover readout via buf.map.
-function renderVector(panelId, vec, { forceDiverging = false } = {}) {
-  const panel = $(panelId);
-  const canvas = panel.querySelector('canvas');
-  const readout = panel.querySelector('.readout');
-  const s = vizSettings();
+// Build the current-mode pixel buffer (or flower points) for a vector — shared by the main
+// panels and the rotation-sweep filmstrip.
+function buildViz(vec, s, { forceDiverging = false } = {}) {
   const idx = orderIndices(vec, s.order, 42);
   const ordered = applyOrder(vec, idx);
   const norm = normalizeVector(ordered, forceDiverging ? 'symmetric' : s.norm);
@@ -470,6 +506,16 @@ function renderVector(panelId, vec, { forceDiverging = false } = {}) {
     case 'projection': buf = renderProjection(ordered, { size: 64, seed: s.seed, colormap: cmap }); break;
     case 'flower': flower = flowerPoints(norm); break;
   }
+  return { buf, flower, idx, ordered };
+}
+
+// Render one vector into a panel canvas; wires the hover readout via buf.map.
+function renderVector(panelId, vec, { forceDiverging = false } = {}) {
+  const panel = $(panelId);
+  const canvas = panel.querySelector('canvas');
+  const readout = panel.querySelector('.readout');
+  const s = vizSettings();
+  const { buf, flower, idx, ordered } = buildViz(vec, s, { forceDiverging });
   const DISPLAY = 360;
   if (flower) {
     canvas.width = DISPLAY; canvas.height = DISPLAY;
@@ -540,7 +586,133 @@ function renderAll() {
     renderVector('viz-M', slerp(a.vec, bSlot.vec, t));
     log(`compare: cos(A,B) = ${cos.toFixed(4)}`);
   }
+  updateRotationVisibility();
+  renderSweep();
 }
+
+// --- Rotation sweep ---
+let sweep = null;   // { slotKey, label, angles, vectors, thumbs }
+
+function rotStatus(msg, cls = 'loading') {
+  const el = $('rot-status');
+  el.textContent = msg;
+  el.className = 'status' + (msg ? ' show ' + cls : '');
+}
+
+function updateRotationVisibility() {
+  const anyImage = (slots.A?.kind === 'image' && slots.A.img) || (slots.B?.kind === 'image' && slots.B.img);
+  $('rotation-section').classList.toggle('show', !!anyImage);
+  $('rot-source').querySelector('option[value=A]').disabled = !(slots.A?.kind === 'image' && slots.A.img);
+  $('rot-source').querySelector('option[value=B]').disabled = !(slots.B?.kind === 'image' && slots.B.img);
+  if ($('rot-source').selectedOptions[0]?.disabled) {
+    $('rot-source').value = slots.A?.kind === 'image' ? 'A' : 'B';
+  }
+}
+
+$('rot-run').addEventListener('click', async () => {
+  const key = $('rot-source').value;
+  const slot = slots[key];
+  if (!slot || slot.kind !== 'image' || !slot.img) { rotStatus('Load an image into that slot first.', 'error'); return; }
+  const step = parseInt($('rot-step').value);
+  const angles = [];
+  for (let a = 0; a < 360; a += step) angles.push(a);
+  $('rot-run').disabled = true;
+  const t0 = performance.now();
+  try {
+    const vectors = [], thumbs = [];
+    for (let i = 0; i < angles.length; i++) {
+      rotStatus(`Embedding ${angles[i]}° (${i + 1}/${angles.length})…`);
+      const { vec, thumb } = await embedImageEl(slot.img, angles[i] ? { rotation: angles[i] } : {});
+      vectors.push(vec); thumbs.push(thumb);
+    }
+    sweep = { slotKey: key, label: slot.label, angles, vectors, thumbs };
+    log(`rotation sweep: ${angles.length} embeds in ${Math.round(performance.now() - t0)}ms`);
+    rotStatus('');
+    renderSweep();
+  } catch (e) {
+    rotStatus(e.message || String(e), 'error');
+    console.error('[vector-viz] sweep:', e);
+  } finally {
+    $('rot-run').disabled = false;
+  }
+});
+
+function renderSweep() {
+  if (!sweep) return;
+  const s = vizSettings();
+  const { angles, vectors, thumbs } = sweep;
+  $('rot-results').style.display = 'block';
+
+  // Stack: one global ordering (from the 0° vector) applied to every row, then JOINT
+  // normalization so rows are comparable. Delta view subtracts the 0° row first.
+  const idx = orderIndices(vectors[0], s.order, 42);
+  const orderedRows = vectors.map((v) => applyOrder(v, idx));
+  const isDelta = $('rot-view').value === 'delta';
+  const rawRows = isDelta ? orderedRows.map((r) => diffVector(r, orderedRows[0])) : orderedRows;
+  const rows01 = normalizeJoint(rawRows, isDelta ? 'symmetric' : s.norm);
+  const buf = renderStack(rows01, { colormap: isDelta ? COLORMAPS.coolwarm : s.cmap, dimIndex: idx });
+  const canvas = $('rot-stack');
+  const off = mkCanvas(buf.width, buf.height);
+  off.getContext('2d').putImageData(new ImageData(buf.pixels, buf.width, buf.height), 0, 0);
+  const w = Math.min(760, buf.width), rowH = Math.max(10, Math.min(22, Math.round(280 / buf.height)));
+  canvas.width = w; canvas.height = rowH * buf.height;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(off, 0, 0, w, rowH * buf.height);
+  canvas._exportCanvas = off;
+  $('rot-labels').innerHTML = angles.map((a) => `<span style="height:${rowH}px;line-height:${rowH}px">${a}°</span>`).join('');
+  canvas.onmousemove = (e) => {
+    const r = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) / r.width * buf.width);
+    const y = Math.floor((e.clientY - r.top) / r.height * buf.height);
+    if (x < 0 || y < 0 || x >= buf.width || y >= buf.height) return;
+    const dim = idx[x], val = vectors[y][dim];
+    const d = isDelta && y > 0 ? ` (Δ ${(val - vectors[0][dim]).toFixed(4)})` : '';
+    $('rot-readout').textContent = `${angles[y]}° · dim ${dim} → ${val.toFixed(4)}${d}`;
+  };
+  $('rot-readout').textContent = `${buf.width} dims × ${angles.length} angles — hover to inspect`;
+
+  // Filmstrip: rotated thumb + current-mode mini viz + cosine vs 0°
+  $('rot-filmstrip').innerHTML = '';
+  for (let i = 0; i < angles.length; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    const cos = cosineSim(vectors[0], vectors[i]);
+    cell.innerHTML = `<div class="angle">${angles[i]}°</div><img src="${thumbs[i]}" alt="rotated ${angles[i]}°"><div class="cos">cos ${cos.toFixed(3)}</div>`;
+    const mini = document.createElement('canvas');
+    const { buf: mbuf, flower } = buildViz(vectors[i], s);
+    if (flower) {
+      mini.width = 110; mini.height = 110;
+      const mctx = mini.getContext('2d');
+      mctx.save(); mctx.translate(55, 55); mctx.scale(50, 50);
+      mctx.beginPath();
+      flower.forEach(([x, y], j) => j ? mctx.lineTo(x, y) : mctx.moveTo(x, y));
+      mctx.closePath();
+      mctx.fillStyle = '#4b3aff44'; mctx.strokeStyle = '#4b3aff'; mctx.lineWidth = 0.04;
+      mctx.fill(); mctx.stroke(); mctx.restore();
+    } else {
+      const moff = mkCanvas(mbuf.width, mbuf.height);
+      moff.getContext('2d').putImageData(new ImageData(mbuf.pixels, mbuf.width, mbuf.height), 0, 0);
+      const mw = 110, mh = mbuf.height === 1 ? 24 : Math.round(110 * mbuf.height / mbuf.width);
+      mini.width = mw; mini.height = mh;
+      const mctx = mini.getContext('2d');
+      mctx.imageSmoothingEnabled = false;
+      mctx.drawImage(moff, 0, 0, mw, mh);
+    }
+    cell.appendChild(mini);
+    $('rot-filmstrip').appendChild(cell);
+  }
+}
+
+$('rot-view').addEventListener('input', renderSweep);
+$('rot-png').addEventListener('click', () => {
+  const src = $('rot-stack')._exportCanvas;
+  if (!src) return;
+  const a = document.createElement('a');
+  a.download = `vector-viz-rotation-stack.png`;
+  a.href = src.toDataURL('image/png');
+  a.click();
+});
 
 $('morph-t').addEventListener('input', (e) => {
   morphT = parseInt(e.target.value) / 100;

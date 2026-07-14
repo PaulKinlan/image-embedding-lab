@@ -3,7 +3,7 @@ import {
   cosineSim, l2normalize, slerp, diffVector, normalizeVector, NORMALIZATIONS,
   orderIndices, applyOrder, ORDERINGS, hilbertD2XY, nextPow2,
   renderGrid, renderBarcode, renderHilbert, renderSimMatrix, renderPhase, renderProjection,
-  flowerPoints, COLORMAPS, MODES,
+  flowerPoints, COLORMAPS, MODES, normalizeJoint, renderStack,
 } from "../lib/vector-viz.mjs";
 
 let failures = 0;
@@ -112,6 +112,35 @@ for (const [name, fn] of Object.entries(COLORMAPS)) {
   check(`colormap ${name} valid rgb`, [r, gg, bb].every((x) => x >= 0 && x <= 255));
 }
 check(`MODES defined (${MODES.length})`, MODES.length === 9);
+
+// Joint normalization: shared params across rows (a constant offset between rows must survive)
+{
+  const base = fakeVec(64, 3);
+  const shifted = Float64Array.from(base, (x) => x + 0.05);
+  for (const mode of NORMALIZATIONS) {
+    const [r1, r2] = normalizeJoint([base, shifted], mode);
+    let inBounds = true, ordered = true;
+    for (let i = 0; i < 64; i++) {
+      if (r1[i] < 0 || r1[i] > 1 || r2[i] < 0 || r2[i] > 1) inBounds = false;
+      if (r2[i] < r1[i] - 1e-9) ordered = false;   // +offset must stay >= after joint mapping
+    }
+    check(`normalizeJoint ${mode} in-bounds & offset preserved`, inBounds && ordered);
+  }
+  const [p1] = normalizeJoint([base], "zscore");
+  const [j1] = normalizeJoint([base, shifted], "zscore");
+  check("normalizeJoint params depend on the whole set", p1.some((x, i) => Math.abs(x - j1[i]) > 1e-9));
+}
+
+// Stack renderer: rows × dims geometry, row y = vector y, map[] = dim index
+{
+  const rows = normalizeJoint([fakeVec(96, 1), fakeVec(96, 2), fakeVec(96, 3)], "zscore");
+  const st = renderStack(rows);
+  check("stack is dims wide × rows tall", st.width === 96 && st.height === 3);
+  check("stack map is dim index", st.map[1] === 1 && st.map[96 + 5] === 5);
+  const [r, g, b2] = COLORMAPS.viridis(rows[1][0]);
+  const o = (1 * 96 + 0) * 4;
+  check("stack row 1 col 0 matches colormap", st.pixels[o] === Math.round(r) || Math.abs(st.pixels[o] - r) <= 1);
+}
 
 console.log(failures ? `\n${failures} FAILURES` : "\nAll tests passed");
 process.exit(failures ? 1 : 0);
