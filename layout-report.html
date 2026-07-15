@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="Seven experiments testing whether image embeddings encode what-is-where or just what: patch shuffle, orientation probes, equivariance, layout swaps, caption stability, mirrored text, caption retrieval.">
-<title>Layout report — do embeddings encode what-is-where?</title>
+<title>Layout report: do embeddings encode what-is-where?</title>
 <style>
-:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--good:#1a8a3a;--bad:#c0392b;--warn:#e6a700}
-@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--good:#57c97a;--bad:#e06c75;--warn:#d9a441}}
+:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--accent-ink:#fff;--good:#1a8a3a;--bad:#c0392b;--warn:#e6a700}
+@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--accent-ink:#0c1524;--good:#57c97a;--bad:#e06c75;--warn:#d9a441}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:920px;margin:0 auto}
+body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:920px;margin:0 auto}
 h1{font-family:Georgia,serif;font-size:1.8rem;font-weight:normal;margin-bottom:.3rem}
 h2{font-family:Georgia,serif;font-size:1.15rem;font-weight:normal;margin:2rem 0 .5rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}
 .sub{color:var(--muted);font-size:.85rem;margin-bottom:1.5rem}
@@ -24,7 +24,7 @@ th:first-child,td:first-child{text-align:left}
 th{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .hi{color:var(--good);font-weight:600}
 .lo{color:var(--bad);font-weight:600}
-.takeaway{background:var(--bg-secondary);border-left:3px solid var(--accent);border-radius:.4rem;padding:.7rem 1rem;font-size:.85rem;margin:.8rem 0}
+.takeaway{background:var(--bg-secondary);border:1px solid var(--border);border-radius:.4rem;padding:.7rem 1rem;font-size:.85rem;margin:.8rem 0}
 p{margin:.6rem 0;font-size:.9rem}
 code{background:var(--bg-secondary);padding:.05rem .35rem;border-radius:.3rem;font-size:.85em}
 .caption-pair{font-size:.82rem;background:var(--bg-secondary);border-radius:.4rem;padding:.6rem .9rem;margin:.5rem 0}
@@ -38,7 +38,7 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 <p class="sub">Seven experiments (2026-07-15) probing how much spatial layout lives inside an image embedding, across five encoders: CLIP ViT-B/32 (contrastive, 512-d CLS-projection), SigLIP B/16 (contrastive, mean-pooled 768-d), DINOv2-S (self-supervised, mean-pooled 384-d), Florence-2's DaViT (VLM vision encoder, mean-pooled 768-d at its native 768px), and <b>Gemini Embedding 2</b> (hosted, VLM-native, 3072-d — closed model, so pooling and true input resolution are outside our control; treat it as an extra column, not a controlled comparison). All similarities are cosine; "normalized" = floor-normalized <code>(sim − floor)/(1 − floor)</code> against the different-image floor, so models with wildly different baselines are comparable. 15-image corpus, fp32 vision encoders in Node.</p>
 <div class="links"><a href="index.html">← Embedding lab</a><a href="explainer.html">How it works</a><a href="vector-viz.html">Vector visualizer</a><a href="vlm.html">VLM playground</a><a href="report.html">Batch report</a><a href="tiling-report.html">Tiling report</a><a href="docs.html">Docs &amp; CLI</a><a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">↗ GitHub</a></div>
 
-<h2>1 · Patch shuffle — destroy layout, keep content</h2>
+<h2>Patch shuffle: destroy layout, keep content</h2>
 <p>Each image's g×g tiles are permuted with one fixed seeded shuffle (content preserved pixel-for-pixel). A "bag of semantics" embedding shouldn't move; a layout-encoding one should collapse toward the floor.</p>
 <table>
 <tr><th>model</th><th>2×2</th><th>4×4</th><th>8×8</th><th>floor</th></tr>
@@ -48,9 +48,9 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 <tr><td>Florence-2</td><td>0.825</td><td>0.674</td><td>0.409</td><td>0.694</td></tr>
 <tr><td>Gemini Emb. 2</td><td>0.837</td><td>0.788</td><td class="hi">0.652</td><td>0.655</td></tr>
 </table>
-<div class="takeaway"><b>CLIP's pooled vector is the MOST layout-sensitive — the opposite of the naive prediction.</b> The confound is what gets pooled: CLIP's output is its attention-based CLS projection (which integrates global arrangement), while the others are mean-pools over patch tokens — and mean-pooling is blind to position by construction. What you pool determines what invariance you measure. Gemini Embedding 2 — a hosted embedding <em>product</em> tuned for retrieval — is the most shuffle-robust of all: barely a fifth of its similarity range is lost to full 8×8 scrambling.</div>
+<div class="takeaway"><b>CLIP's pooled vector is the MOST layout-sensitive, the opposite of the naive prediction.</b> The confound is what gets pooled: CLIP's output is its attention-based CLS projection (which integrates global arrangement), while the others are mean-pools over patch tokens, and mean-pooling is blind to position by construction. What you pool determines what invariance you measure. Gemini Embedding 2, a hosted embedding <em>product</em> tuned for retrieval, is the most shuffle-robust of all: barely a fifth of its similarity range is lost to full 8×8 scrambling.</div>
 
-<h2>2 · Orientation linear probe — is rotation still in the vector?</h2>
+<h2>Orientation probe: is rotation still in the vector?</h2>
 <p>A softmax probe predicts the rotation angle {0°, 90°, 180°, 270°} from the pooled embedding (leave-one-image-out CV, chance 25%). This asks about <em>information</em>, not <em>movement</em>.</p>
 <table>
 <tr><th>model</th><th>probe accuracy</th></tr>
@@ -60,9 +60,9 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 <tr><td>Florence-2</td><td class="hi">63%</td></tr>
 <tr><td>Gemini Emb. 2</td><td>57%</td></tr>
 </table>
-<div class="takeaway">Orientation is decodable from <em>every</em> embedding — "invariant" never means the information is gone. And the ordering matches the thesis: the VLM encoder retains the most orientation information, contrastive CLIP the least. Note the tension with experiment 1: CLIP's vector <em>moves</em> the most yet <em>tells</em> the least — movement and information are different measurements.</div>
+<div class="takeaway">Orientation is decodable from <em>every</em> embedding: "invariant" never means the information is gone. And the ordering matches the thesis: the VLM encoder retains the most orientation information, contrastive CLIP the least. Note the tension with experiment 1: CLIP's vector <em>moves</em> the most yet <em>tells</em> the least. Movement and information are different measurements.</div>
 
-<h2>3 · Equivariance vs invariance — did the representation break, or just move?</h2>
+<h2>Equivariance: did the representation break, or just move?</h2>
 <p>Compare <em>unpooled</em> token grids under rotation, then rotate the token <em>positions</em> back and compare again. Recovery ⇒ the encoder is equivariant (tokens stayed faithful, only positions moved). CLIP's pipeline output is already pooled, so it has no grid here. Values are means over 90/180/270°.</p>
 <table>
 <tr><th>model</th><th>raw grid cos</th><th>position-compensated</th><th>recovery</th></tr>
@@ -70,9 +70,9 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 <tr><td>DINOv2</td><td>0.397</td><td>0.611</td><td class="hi">+0.35</td></tr>
 <tr><td>Florence-2</td><td>0.437</td><td>0.348</td><td class="lo">−0.16</td></tr>
 </table>
-<div class="takeaway">DINOv2 is the most equivariant: put its tokens back and a third of the lost similarity returns (the rest is patch-<em>internal</em> orientation). Florence goes <b>negative</b> — relocating its tokens makes things worse, meaning position is entangled <em>into</em> each token's features rather than carried alongside them. That's the strongest form of what-is-where coupling, and plausibly what a decoder that must answer "where is the text" needs.</div>
+<div class="takeaway">DINOv2 is the most equivariant: put its tokens back and a third of the lost similarity returns (the rest is patch-<em>internal</em> orientation). Florence goes <b>negative</b>: relocating its tokens makes things worse, meaning position is entangled <em>into</em> each token's features rather than carried alongside them. That's the strongest form of what-is-where coupling, and plausibly what a decoder that must answer "where is the text" needs.</div>
 
-<h2>4 · Same content, swapped layout</h2>
+<h2>Same content, swapped layout</h2>
 <p>Composite two images side-by-side as A|B and B|A: identical content, different arrangement. Floor = cosine between composites of <em>different</em> pairs.</p>
 <table>
 <tr><th>model</th><th>cos(A|B, B|A)</th><th>normalized</th></tr>
@@ -82,9 +82,9 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 <tr><td>Florence-2</td><td>0.986</td><td class="hi">0.951</td></tr>
 <tr><td>Gemini Emb. 2</td><td>0.970</td><td>0.915</td></tr>
 </table>
-<div class="takeaway">Arrangement carries little weight in any pooled embedding (A|B ≈ B|A everywhere) — but CLIP is again the most arrangement-sensitive, consistent with experiment 1. Mean-pooled representations barely notice a layout swap at all.</div>
+<div class="takeaway">Arrangement carries little weight in any pooled embedding (A|B ≈ B|A everywhere), but CLIP is again the most arrangement-sensitive, consistent with experiment 1. Mean-pooled representations barely notice a layout swap at all.</div>
 
-<h2>5 · Caption stability — what does the VLM <em>say</em> under rotation?</h2>
+<h2>Caption stability: what does the VLM <em>say</em> under rotation?</h2>
 <p>Florence-2 captions every image at 0/90/180/270°. If the encoder moves but the decoder shrugs, captions should survive.</p>
 <table>
 <tr><th>angle</th><th>caption Jaccard vs 0°</th><th>exact matches</th><th>embedding cos</th></tr>
@@ -92,11 +92,11 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 <tr><td>180°</td><td>0.24</td><td>0 / 15</td><td>0.86</td></tr>
 <tr><td>270°</td><td>0.24</td><td>0 / 15</td><td>0.81</td></tr>
 </table>
-<div class="caption-pair">webpage-wikipedia.png · upright: <b>"A computer screen with a page of information about cats."</b> → 90°: <b>"A screenshot of a computer screen with a cat on the bottom left."</b> — rotated, the model stops <em>reading</em> the page and starts <em>seeing</em> it.</div>
+<div class="caption-pair">webpage-wikipedia.png · upright: <b>"A computer screen with a page of information about cats."</b> → 90°: <b>"A screenshot of a computer screen with a cat on the bottom left."</b> Rotated, the model stops <em>reading</em> the page and starts <em>seeing</em> it.</div>
 <div class="caption-pair">photo-road-tunnel.jpg · upright: <b>"A road with a bridge over it surrounded by trees."</b> → 180°: <b>"A green and black image of a pair of shoes."</b></div>
-<div class="takeaway"><b>Hypothesis refuted — the decoder does not shrug.</b> Not one caption survives any rotation, and many are wholesale mis-recognitions, while embedding cosine sits at a benign-looking ~0.8. Rotation genuinely changes what the model recognizes: photos have a canonical "up" in training data, and an upside-down scene is out-of-distribution content, not the same content re-posed. Embedding cosine <em>understates</em> the semantic damage.</div>
+<div class="takeaway"><b>Hypothesis refuted: the decoder does not shrug.</b> Not one caption survives any rotation, and many are wholesale mis-recognitions, while embedding cosine sits at a benign-looking ~0.8. Rotation genuinely changes what the model recognizes: photos have a canonical "up" in training data, and an upside-down scene is out-of-distribution content, not the same content re-posed. Embedding cosine <em>understates</em> the semantic damage.</div>
 
-<h2>6 · Mirrored text — invariance depends on content × training</h2>
+<h2>Mirrored text: invariance depends on content × training</h2>
 <p>Horizontal flip keeps photographic semantics but destroys textual semantics. Normalized flip-similarity per category, with per-category floors:</p>
 <table>
 <tr><th>model</th><th>photos</th><th>text/webpages</th><th>gap</th></tr>
@@ -106,9 +106,9 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 <tr><td>Florence-2</td><td>0.92</td><td class="lo">−0.00</td><td class="lo">0.92</td></tr>
 <tr><td>Gemini Emb. 2</td><td>0.95</td><td>0.50</td><td>0.45</td></tr>
 </table>
-<div class="takeaway">The flip penalty on text scales with how much the model <em>reads</em>: DINOv2 (no language) can't tell mirrored text from text; CLIP and SigLIP punish it moderately; Florence — which does OCR — treats a mirrored document as no more similar than a <em>different image</em> (normalized ≈ 0). "Semantic invariance" isn't a property of a model; it's a property of model × content.</div>
+<div class="takeaway">The flip penalty on text scales with how much the model <em>reads</em>: DINOv2 (no language) can't tell mirrored text from text; CLIP and SigLIP punish it moderately; Florence, which does OCR, treats a mirrored document as no more similar than a <em>different image</em> (normalized ≈ 0). "Semantic invariance" isn't a property of a model; it's a property of model × content.</div>
 
-<h2>7 · Caption retrieval — do the semantics survive the movement?</h2>
+<h2>Caption retrieval: do the semantics survive the movement?</h2>
 <p>CLIP image↔text: after each transform, does the image still retrieve its own caption (top-1 of 15)?</p>
 <table>
 <tr><th>transform</th><th>own-caption top-1</th><th>mean margin</th></tr>
@@ -120,7 +120,7 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 <tr><td>blur</td><td>11 / 15</td><td>0.022</td></tr>
 <tr><td>rotate 90°</td><td>10 / 15</td><td>0.032</td></tr>
 </table>
-<div class="takeaway">CLIP's <em>semantics</em> are far more robust than its vector movement suggests: even a 4×4 patch shuffle — which drops image↔image cosine to ~0.79 — keeps own-caption retrieval at 12/15. The vector moves through space, but it stays in the right neighborhood. Margins shrink under every transform, though: robustness is thinning, not free.</div>
+<div class="takeaway">CLIP's <em>semantics</em> are far more robust than its vector movement suggests: even a 4×4 patch shuffle (which drops image↔image cosine to ~0.79) keeps own-caption retrieval at 12/15. The vector moves through space, but it stays in the right neighborhood. Margins shrink under every transform, though: robustness is thinning, not free.</div>
 <p>The same protocol on <b>Gemini Embedding 2</b> (its text and images share a space):</p>
 <table>
 <tr><th>transform</th><th>own-caption top-1</th><th>mean margin</th></tr>
@@ -134,13 +134,14 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 </table>
 <div class="takeaway"><b>Transform-proof retrieval.</b> Gemini Embedding 2 keeps own-caption top-1 at 14–15/15 under every transform, with margins (~0.12) more than double CLIP's that barely move. A decade of scale plus retrieval-tuning buys semantic robustness that treats rotation, mirroring, and even patch scrambling as noise.</div>
 
+<!-- impeccable-disable numbered-section-markers -- numeric table data values, not section labels -->
 <h2>Synthesis</h2>
-<p>The thesis survives, sharpened into four claims the data now supports:</p>
-<p><b>1. Layout is in every embedding</b> — orientation probes beat chance everywhere (exp 2), and the ordering is thesis-shaped: Florence &gt; DINOv2 &gt; SigLIP &gt; CLIP on retained spatial information.</p>
-<p><b>2. "How much the pooled vector moves" measures the aggregation, not the encoder.</b> CLIP's CLS-projection moves most under layout changes (exps 1, 4) while carrying the least layout information (exp 2) — because mean-pooling (the other three) cancels positional structure that provably still exists at the token level (exps 2, 3). Any invariance claim must state what was pooled.</p>
-<p><b>3. Encoders differ in <em>how</em> they carry position:</b> DINOv2 is substantially equivariant (position rides alongside content and can be factored back out); Florence entangles position into the token features themselves (exp 3) — layout isn't metadata for a VLM encoder, it's part of the percept.</p>
-<p><b>4. Semantic robustness and vector robustness are different axes.</b> CLIP's meaning survives shuffling that wrecks its cosine (exp 7); Florence's cosine survives rotations that wreck its meaning (exp 5). And whether "meaning" survives a transform depends on the content — mirrored beaches are beaches, mirrored documents are noise (exp 6).</p>
-<p><b>5. "VLM-native" describes the lineage, not the embedding.</b> Florence's raw encoder entangles position into its features (exp 3), but Gemini Embedding 2 — a retrieval-tuned embedding <em>product</em> from a VLM lineage — is the most layout-<em>insensitive</em> pooled vector in the suite (exps 1, 7b) while still carrying decodable orientation (exp 2, 57%). Layout lives in the encoder; whether it survives into the embedding is decided by the head's training objective.</p>
+<p>The thesis survives, sharpened into five claims the data now supports:</p>
+<p><b>Layout is in every embedding.</b> Orientation probes beat chance everywhere (the probe), and the ordering is thesis-shaped: Florence &gt; DINOv2 &gt; SigLIP &gt; CLIP on retained spatial information.</p>
+<p><b>"How much the pooled vector moves" measures the aggregation, not the encoder.</b> CLIP's CLS-projection moves most under layout changes (shuffle, layout swap) while carrying the least layout information (the probe), because mean-pooling (the other three) cancels positional structure that provably still exists at the token level (probe, equivariance). Any invariance claim must state what was pooled.</p>
+<p><b>Encoders differ in <em>how</em> they carry position.</b> DINOv2 is substantially equivariant (position rides alongside content and can be factored back out); Florence entangles position into the token features themselves (equivariance). Layout isn't metadata for a VLM encoder, it's part of the percept.</p>
+<p><b>Semantic robustness and vector robustness are different axes.</b> CLIP's meaning survives shuffling that wrecks its cosine (caption retrieval); Florence's cosine survives rotations that wreck its meaning (caption stability). And whether "meaning" survives a transform depends on the content: mirrored beaches are beaches, mirrored documents are noise (mirrored text).</p>
+<p><b>"VLM-native" describes the lineage, not the embedding.</b> Florence's raw encoder entangles position into its features, but Gemini Embedding 2, a retrieval-tuned embedding <em>product</em> from a VLM lineage, is the most layout-<em>insensitive</em> pooled vector in the suite (shuffle, retrieval) while still carrying decodable orientation (probe, 57%). Layout lives in the encoder; whether it survives into the embedding is decided by the head's training objective.</p>
 
 <h2>Reproduce</h2>
 <pre>node scripts/experiment-patch-shuffle.mjs      # → results-patch-shuffle.json
@@ -153,7 +154,7 @@ node scripts/experiment-text-alignment.mjs     # → results-text-alignment.json
 node scripts/experiment-gemini-alignment.mjs   # → results-gemini-alignment.json (needs GEMINI_API_KEY)</pre>
 <p class="note">Caveats: n = 15 images, one shuffle seed, one run. Gemini Embedding 2 is a closed
 hosted model (public preview): its pooling, true input resolution, and any server-side
-preprocessing are unknown, and results may change as the preview evolves — the local models are
-the controlled comparison; Gemini is context — treat orderings as robust, exact values as indicative. The CLS-vs-mean-pool confound (exp 1) is a finding here but also a limitation: a cleaner follow-up compares CLS and mean-pool <em>within</em> one model. The probe (exp 2) has 56 training samples against 384–768 dims; regularized, cross-validated, but small. Florence's language decoder runs q8 (its vision encoder fp32). Shared pipeline: <code>scripts/lib-harness.mjs</code> renders every transform at each encoder's native resolution per <a href="AGENTS.md">AGENTS.md</a>. <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
+preprocessing are unknown, and results may change as the preview evolves; the local models are
+the controlled comparison, Gemini is context. Treat orderings as robust, exact values as indicative. The CLS-vs-mean-pool confound (shuffle) is a finding here but also a limitation: a cleaner follow-up compares CLS and mean-pool <em>within</em> one model. The probe has 56 training samples against 384–768 dims; regularized, cross-validated, but small. Florence's language decoder runs q8 (its vision encoder fp32). Shared pipeline: <code>scripts/lib-harness.mjs</code> renders every transform at each encoder's native resolution per <a href="AGENTS.md">AGENTS.md</a>. <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a></p>
 </body>
 </html>

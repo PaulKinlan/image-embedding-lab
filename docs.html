@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Docs — Image Embedding Lab</title>
+<title>Docs · Image Embedding Lab</title>
 <style>
 :root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff}
 @media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:800px;margin:0 auto}
+body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:800px;margin:0 auto}
 h1{font-family:Georgia,serif;font-size:1.6rem;font-weight:normal;margin-bottom:.3rem}
 h2{font-family:Georgia,serif;font-size:1.1rem;font-weight:normal;margin:1.5rem 0 .5rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}
 a{color:var(--accent)}
@@ -22,10 +22,11 @@ table{width:100%;border-collapse:collapse;margin:1rem 0}
 th,td{padding:.4rem .6rem;text-align:left;font-size:.8rem;border-bottom:1px solid var(--border)}
 th{background:var(--bg-secondary);font-size:.68rem;text-transform:uppercase;color:var(--muted)}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
-.callout{font-size:.85rem;padding:.8rem;background:var(--bg-secondary);border-left:3px solid var(--accent);border-radius:0 .4rem .4rem 0;margin:.8rem 0}
+.callout{font-size:.85rem;padding:.8rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:.4rem;margin:.8rem 0}
 </style>
 </head>
 <body>
+<!-- impeccable-disable em-dash-overuse -- CLI flag syntax (--model, --json, --tiles) in code samples, not prose -->
 <div class="nav">
   <a href="index.html">← Lab</a>
   <a href="vlm.html">VLM playground</a>
@@ -33,11 +34,11 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
   <a href="tiling-report.html">Tiling report</a>
   <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a>
 </div>
-<h1>Image Embedding Lab — Docs</h1>
+<h1>Image Embedding Lab: Docs</h1>
 
 <h2>Embedding method</h2>
 <p>An embedding is one vector per image: render the image to a square, pass it to the vision encoder, reduce the output to a single vector, and L2-normalize. Everything (invariance, similarity, the floor) compares those vectors by cosine.</p>
-<p>The pooling step is load-bearing. <code>image-feature-extraction</code> returns different shapes per model — a pooled <code>[1,512]</code> for CLIP, but raw patch-token grids for SigLIP <code>[1,196,768]</code> and DINOv2 <code>[1,257,384]</code>. Mean-pooling every model's tokens to one vector is what makes them comparable; skipping it compares flattened patch grids, where a rotation just reshuffles token order (the artifact behind the old "patch size" claim). JPEG (q0.9/0.5/0.2) and tiling are extra axes on top of this.</p>
+<p>The pooling step is load-bearing. <code>image-feature-extraction</code> returns different shapes per model: a pooled <code>[1,512]</code> for CLIP, but raw patch-token grids for SigLIP <code>[1,196,768]</code> and DINOv2 <code>[1,257,384]</code>. Mean-pooling every model's tokens to one vector is what makes them comparable; skipping it compares flattened patch grids, where a rotation just reshuffles token order (the artifact behind the old "patch size" claim). JPEG (q0.9/0.5/0.2) and tiling are extra axes on top of this.</p>
 <div class="callout">A VLM builds the same object: its encoder turns the image into a token grid and a decoder reads it to write text. Tap the grid and pool it and you get an embedding — Florence-2's <code>encode_image</code> gives <code>[1,577,768]</code> → mean-pool → 768-d. "An embedding" is one pooled hidden state; the alternative is running that hidden state through the output layer to pick the next word. See the <a href="vlm.html">VLM playground</a>.</div>
 
 <h2>Models</h2>
@@ -64,18 +65,18 @@ python3 scripts/generate_report.py                     # regenerate report.html<
 <p><a href="vlm.html">vlm.html</a> runs Florence-2 in the browser: caption, read text (OCR), detect objects, extract the image embedding, and compare two images by cosine. It also runs the rotation-invariance test on Florence-2's own embedding.</p>
 
 <h2>Gemma 4 vision (experimental)</h2>
-<p>Gemma 4's vision encoder is a submodel extracted from Gemma 4 E2B, loaded via <a href="https://onnxruntime.ai/docs/tutorials/web/" target="_blank">ONNX Runtime Web</a> (not Transformers.js). It currently fails at ONNX session creation in-browser (a WASM abort — likely an unsupported op in the q4 build), so it's kept as experimental. The other encoders work.</p>
+<p>Gemma 4's vision encoder is a submodel extracted from Gemma 4 E2B, loaded via <a href="https://onnxruntime.ai/docs/tutorials/web/" target="_blank">ONNX Runtime Web</a> (not Transformers.js). It currently fails at ONNX session creation in-browser (a WASM abort (likely an unsupported op in the q4 build), so it's kept as experimental. The other encoders work.</p>
 
 <h2>Service worker</h2>
 <p>Model blobs (~85–600MB) are cached via the Cache API. Network-first for the app shell so updates appear immediately; model blobs stay cache-first.</p>
 
 <h2>Reports</h2>
-<p><a href="report.html">Batch report</a> — 15 images × 3 encoders × 20 transforms, with the corrected numbers.<br>
-<a href="tiling-report.html">Tiling report</a> — does tiling help the encoder see detail? (it depends on how you combine the tiles).<br>
-<a href="https://github.com/PaulKinlan/image-embedding-lab/blob/master/FINDINGS.md" target="_blank">FINDINGS.md</a> — the write-up.</p>
+<p><a href="report.html">Batch report</a>: 15 images × 3 encoders × 20 transforms, with the corrected numbers.<br>
+<a href="tiling-report.html">Tiling report</a>: does tiling help the encoder see detail? (it depends on how you combine the tiles).<br>
+<a href="https://github.com/PaulKinlan/image-embedding-lab/blob/master/FINDINGS.md" target="_blank">FINDINGS.md</a>: the write-up.</p>
 
 <h2>Current finding</h2>
-<p>Patch size does <em>not</em> rank the encoders — that earlier claim was a pooling artifact. With embeddings pooled, SigLIP (patch 16) matches CLIP (patch 32) on rotation (both ~85%); DINOv2 is ~72%. The real story is the baseline: the different-image floor varies a lot (CLIP 58%, DINOv2 15%), so CLIP's high absolute scores are partly a compressed embedding space. Floor-normalized, the encoders are comparable. No encoder is fully transformation-invariant — a rotated image is not treated as identical, because ViT positional embeddings are absolute.</p>
+<p>Patch size does <em>not</em> rank the encoders; that earlier claim was a pooling artifact. With embeddings pooled, SigLIP (patch 16) matches CLIP (patch 32) on rotation (both ~85%); DINOv2 is ~72%. The real story is the baseline: the different-image floor varies a lot (CLIP 58%, DINOv2 15%), so CLIP's high absolute scores are partly a compressed embedding space. Floor-normalized, the encoders are comparable. No encoder is fully transformation-invariant — a rotated image is not treated as identical, because ViT positional embeddings are absolute.</p>
 
 <p style="margin-top:2rem;font-size:.75rem;color:var(--muted)"><a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a> · <a href="index.html">Lab</a> · <a href="report.html">Report</a> · <a href="tiling-report.html">Tiling</a> · <a href="vlm.html">VLM</a></p>
 </body>

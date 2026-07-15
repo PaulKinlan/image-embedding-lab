@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="Run a small vision-language model (Florence-2) in your browser — caption, read text (OCR), and detect objects.">
-<title>Small VLM playground — Image Embedding Lab</title>
+<meta name="description" content="Run a small vision-language model (Florence-2) in your browser: caption, read text (OCR), and detect objects.">
+<title>Small VLM playground · Image Embedding Lab</title>
 <style>
-:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--good:#1a8a3a;--bad:#c0392b}
-@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--good:#57c97a;--bad:#e06c75}}
+:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--accent-ink:#fff;--good:#1a8a3a;--bad:#c0392b}
+@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--accent-ink:#0c1524;--good:#57c97a;--bad:#e06c75}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.6;color:var(--color);background:var(--background);padding:1.5rem;max-width:820px;margin:0 auto}
+body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;line-height:1.6;color:var(--color);background:var(--background);padding:1.5rem;max-width:820px;margin:0 auto}
 a{color:var(--accent)}.back{font-size:.8rem;display:inline-block;margin-bottom:1rem}
 h1{font-family:Georgia,serif;font-size:1.7rem;font-weight:normal;margin-bottom:.3rem}
 .sub{color:var(--muted);font-size:.85rem;margin-bottom:1.25rem}
@@ -25,12 +25,12 @@ h1{font-family:Georgia,serif;font-size:1.7rem;font-weight:normal;margin-bottom:.
 .dl-overall b{color:var(--color)}
 .dl-overall span{color:var(--muted);font-variant-numeric:tabular-nums}
 .dl-obar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:.6rem}
-.dl-obar-fill{height:100%;width:0;background:var(--accent);border-radius:4px;transition:width .2s}
+.dl-obar-fill{height:100%;width:0;background:var(--accent);border-radius:4px}
 .dl-file{font-size:.7rem;color:var(--muted);margin:.35rem 0}
 .dl-file .dl-row{display:flex;justify-content:space-between;gap:.5rem}
 .dl-file .dl-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dl-file .dl-fbar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:2px}
-.dl-file .dl-fbar-fill{height:100%;width:0;background:var(--accent);border-radius:2px;transition:width .2s}
+.dl-file .dl-fbar-fill{height:100%;width:0;background:var(--accent);border-radius:2px}
 .dl-file.done .dl-nm::before{content:'✓ ';color:var(--good)}
 .errbox{display:none;margin:.6rem 0;padding:.8rem;border:1px solid var(--bad);border-radius:.5rem;background:color-mix(in srgb,var(--bad) 9%,transparent);color:var(--bad);font-size:.82rem;white-space:pre-wrap;word-break:break-word;line-height:1.5}
 .errbox.show{display:block}
@@ -40,7 +40,7 @@ h1{font-family:Georgia,serif;font-size:1.7rem;font-weight:normal;margin-bottom:.
 canvas{display:block;max-width:100%;height:auto}
 .tasks{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0}
 button{font:inherit;font-size:.8rem;padding:.45rem .8rem;border:1px solid var(--border);border-radius:.4rem;background:var(--bg-secondary);color:var(--color);cursor:pointer}
-button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
 button:disabled{opacity:.5;cursor:not-allowed}
 .out{white-space:pre-wrap;font-size:.9rem;padding:.8rem;border:1px solid var(--border);border-radius:.4rem;background:var(--bg-secondary);min-height:3rem;word-break:break-word}
 .out .muted{color:var(--muted)}
@@ -52,7 +52,7 @@ label.small{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-
 .thumb{flex:0 0 auto;width:58px;cursor:pointer;border:1px solid var(--border);border-radius:.35rem;overflow:hidden;background:var(--bg-secondary);position:relative}
 .thumb img{width:58px;height:44px;object-fit:cover;display:block}
 .thumb .nm{font-size:.54rem;color:var(--muted);padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.thumb .asb{position:absolute;top:2px;right:2px;font-size:.55rem;line-height:1;background:var(--accent);color:#fff;border:0;border-radius:3px;padding:1px 3px;cursor:pointer}
+.thumb .asb{position:absolute;top:2px;right:2px;font-size:.55rem;line-height:1;background:var(--accent);color:var(--accent-ink);border:0;border-radius:3px;padding:1px 3px;cursor:pointer}
 .thumb:hover{border-color:var(--accent)}
 </style>
 </head>
@@ -116,7 +116,7 @@ label.small{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-
 
   <div id="rotpanel" style="margin-top:1.25rem;padding:1rem;border:1px solid var(--border);border-radius:.5rem;background:var(--bg-secondary)">
     <label class="small">Rotation invariance (image A)</label>
-    <p style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem">Embed A rotated by several angles and compare each to upright (cosine). Shows how far Florence-2's embedding moves under rotation — the same test as the embedding lab, on a VLM's encoder.</p>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem">Embed A rotated by several angles and compare each to upright (cosine). Shows how far Florence-2's embedding moves under rotation: the same test as the embedding lab, on a VLM's encoder.</p>
     <button id="rotBtn" class="primary">Run rotation test on A</button>
     <div class="out" id="rotout" style="margin-top:.6rem"><span class="muted">Results show here.</span></div>
   </div>
@@ -253,7 +253,7 @@ async function run(task) {
   } catch (e) {
     console.error(e);
     showError(errorDetail(e));
-    $('out').innerHTML = '<span class="muted">Failed — see the error above.</span>';
+    $('out').innerHTML = '<span class="muted">Failed; see the error above.</span>';
     setStatus('Failed.', true);
   } finally {
     setTasksDisabled(false);
@@ -315,7 +315,7 @@ async function showEmbedding() {
   } catch (e) {
     console.error(e);
     showError(errorDetail(e));
-    $('out').innerHTML = '<span class="muted">Failed — see the error above.</span>';
+    $('out').innerHTML = '<span class="muted">Failed; see the error above.</span>';
     setStatus('Failed.', true);
   } finally {
     setTasksDisabled(false);
@@ -340,7 +340,7 @@ const dropB = $('dropB'), fileB = $('fileB');
 async function setB(file) {
   if (!file) return;
   rawImageB = await RawImage.fromBlob(file);
-  $('simout').innerHTML = '<span class="muted">Image B ready — hit Compare.</span>';
+  $('simout').innerHTML = '<span class="muted">Image B ready. Hit Compare.</span>';
 }
 dropB.addEventListener('click', () => fileB.click());
 dropB.addEventListener('dragover', (e) => { e.preventDefault(); dropB.classList.add('over'); });
@@ -362,7 +362,7 @@ $('compareBtn').addEventListener('click', async () => {
   } catch (e) {
     console.error(e);
     showError(errorDetail(e));
-    $('simout').innerHTML = '<span class="muted">Failed — see the error above.</span>';
+    $('simout').innerHTML = '<span class="muted">Failed; see the error above.</span>';
   } finally {
     $('compareBtn').disabled = false;
   }
@@ -382,7 +382,7 @@ async function loadA(url) {
 async function loadB(url) {
   rawImageB = await RawImage.fromURL(url);
   $('app').style.display = 'block';
-  $('simout').innerHTML = '<span class="muted">Image B ready — hit Compare A vs B.</span>';
+  $('simout').innerHTML = '<span class="muted">Image B ready. Hit Compare A vs B.</span>';
 }
 
 async function loadCorpus() {
@@ -438,7 +438,7 @@ $('rotBtn').addEventListener('click', async () => {
   } catch (e) {
     console.error(e);
     showError(errorDetail(e));
-    $('rotout').innerHTML = '<span class="muted">Failed — see the error above.</span>';
+    $('rotout').innerHTML = '<span class="muted">Failed; see the error above.</span>';
   } finally {
     btn.disabled = false;
   }

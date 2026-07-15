@@ -7,11 +7,11 @@
 <meta name="description" content="Are image embeddings invariant to rotation, cropping, and scaling? Test it yourself with CLIP running in your browser.">
 <title>Image Embedding Lab — are embeddings transformation-invariant?</title>
 <style>
-:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--good:#1a8a3a;--bad:#c0392b;--warn:#e6a700}
-@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--good:#57c97a;--bad:#e06c75;--warn:#d9a441}}
+:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--accent-ink:#fff;--good:#1a8a3a;--bad:#c0392b;--warn:#e6a700}
+@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--accent-ink:#0c1524;--good:#57c97a;--bad:#e06c75;--warn:#d9a441}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:920px;margin:0 auto}
+body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:920px;margin:0 auto}
 h1{font-family:Georgia,serif;font-size:1.8rem;font-weight:normal;margin-bottom:.3rem}
 h2{font-family:Georgia,serif;font-size:1.15rem;font-weight:normal;margin:1.5rem 0 .5rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}
 .sub{color:var(--muted);font-size:.85rem;margin-bottom:1.5rem}
@@ -28,12 +28,12 @@ h2{font-family:Georgia,serif;font-size:1.15rem;font-weight:normal;margin:1.5rem 
 .download-panel .dl-overall b{color:var(--color)}
 .download-panel .dl-overall .dl-speed{font-size:.72rem;color:var(--accent);font-variant-numeric:tabular-nums}
 .download-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:.6rem}
-.download-bar-fill{height:100%;background:var(--accent);transition:width .3s;border-radius:3px}
+.download-bar-fill{height:100%;background:var(--accent);border-radius:3px}
 .dl-file{display:grid;grid-template-columns:1fr auto;gap:.3rem;font-size:.72rem;padding:.25rem 0;align-items:center}
 .dl-file .dl-name{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dl-file .dl-size{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .dl-file .dl-filebar{grid-column:1/-1;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
-.dl-file .dl-filebar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s}
+.dl-file .dl-filebar-fill{height:100%;background:var(--accent);border-radius:2px}
 .dl-file.cached .dl-name::before{content:'✓ ';color:var(--good)}
 .dl-file.done .dl-name::before{content:'✓ ';color:var(--good)}
 .image-section{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
@@ -45,7 +45,7 @@ h2{font-family:Georgia,serif;font-size:1.15rem;font-weight:normal;margin:1.5rem 
 .control-group label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .control-group input[type=range]{width:140px;accent-color:var(--accent)}
 .control-group select,.control-group input[type=number]{font:inherit;padding:.25rem .4rem;border:1px solid var(--border);border-radius:.3rem;background:var(--background);color:var(--color);font-size:.8rem}
-button{font:inherit;padding:.5rem 1.1rem;border:1px solid var(--border);border-radius:.35rem;background:var(--accent);color:#fff;cursor:pointer;font-size:.82rem}
+button{font:inherit;padding:.5rem 1.1rem;border:1px solid var(--border);border-radius:.35rem;background:var(--accent);color:var(--accent-ink);cursor:pointer;font-size:.82rem}
 button:hover{opacity:.9}
 button:disabled{opacity:.4;cursor:not-allowed}
 button.secondary{background:var(--bg-secondary);color:var(--color)}
@@ -67,12 +67,12 @@ a{color:var(--accent)}
 .links a:hover{border-color:var(--accent);color:var(--accent)}
 select#model-select{width:100%;max-width:32rem;padding:.5rem .6rem;font-size:.9rem}
 .control-group>label{font-weight:600}
-.primary-btn{background:var(--accent);color:#fff;font-size:.95rem;font-weight:600;padding:.7rem 1.4rem;border-radius:.5rem;border:0}
+.primary-btn{background:var(--accent);color:var(--accent-ink);font-size:.95rem;font-weight:600;padding:.7rem 1.4rem;border-radius:.5rem;border:0}
 .primary-btn:disabled{opacity:.5}
 .embed-progress{margin:1rem 0;display:none}
 .embed-progress.show{display:block}
 .embed-bar{height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden}
-.embed-bar-fill{height:100%;width:0;background:var(--accent);border-radius:4px;transition:width .12s ease}
+.embed-bar-fill{height:100%;width:0;background:var(--accent);border-radius:4px}
 .embed-label{font-size:.78rem;color:var(--muted);margin-top:.45rem;font-variant-numeric:tabular-nums;display:flex;justify-content:space-between}
 .summary-card{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:.5rem;margin:1rem 0;padding:1rem;background:var(--bg-secondary);border-radius:.6rem}
 .summary-card .stat{text-align:center}
@@ -710,8 +710,8 @@ function showUpdateBanner() {
   if (document.getElementById('update-banner')) return;
   const banner = document.createElement('div');
   banner.id = 'update-banner';
-  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--accent);color:#fff;padding:.7rem 1rem;display:flex;justify-content:center;align-items:center;gap:1rem;z-index:1000;font-size:.82rem';
-  banner.innerHTML = '<span>New version available</span><button onclick="location.reload()" style="background:#fff;color:var(--accent);border:none;padding:.3rem .8rem;border-radius:.3rem;cursor:pointer;font:inherit;font-weight:700">Reload</button><button onclick="this.parentElement.remove()" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);padding:.3rem .5rem;border-radius:.3rem;cursor:pointer;font:inherit">Later</button>';
+  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--accent);color:var(--accent-ink);padding:.7rem 1rem;display:flex;justify-content:center;align-items:center;gap:1rem;z-index:1000;font-size:.82rem';
+  banner.innerHTML = '<span>New version available</span><button onclick="location.reload()" style="background:#fff;color:#111;border:none;padding:.3rem .8rem;border-radius:.3rem;cursor:pointer;font:inherit;font-weight:700">Reload</button><button onclick="this.parentElement.remove()" style="background:transparent;color:var(--accent-ink);border:1px solid currentColor;padding:.3rem .5rem;border-radius:.3rem;cursor:pointer;font:inherit">Later</button>';
   document.body.appendChild(banner);
 }
 </script>

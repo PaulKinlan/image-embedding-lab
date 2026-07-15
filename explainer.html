@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="An interactive explainer: what an embedding is, how an image becomes a vector, why pooling and training objectives decide what survives — and what our seven experiments found.">
-<title>How image embeddings work — an interactive explainer</title>
+<meta name="description" content="An interactive explainer: what an embedding is, how an image becomes a vector, why pooling and training objectives decide what survives, and what our seven experiments found.">
+<title>How image embeddings work: an interactive explainer</title>
 <style>
-:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--good:#1a8a3a;--bad:#c0392b;--warn:#e6a700;
+:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--accent-ink:#fff;--good:#1a8a3a;--bad:#c0392b;--warn:#e6a700;
   --s-clip:#2a78d6;--s-siglip:#1baf7a;--s-dinov2:#eda100;--s-florence:#008300;--s-gemini:#4a3aa7}
-@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--good:#57c97a;--bad:#e06c75;--warn:#d9a441;
+@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--accent-ink:#0c1524;--good:#57c97a;--bad:#e06c75;--warn:#d9a441;
   --s-clip:#3987e5;--s-siglip:#199e70;--s-dinov2:#c98500;--s-florence:#008300;--s-gemini:#9085e9}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:880px;margin:0 auto}
+body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:880px;margin:0 auto}
 h1{font-family:Georgia,serif;font-size:1.9rem;font-weight:normal;margin-bottom:.3rem}
 h2{font-family:Georgia,serif;font-size:1.3rem;font-weight:normal;margin:2.6rem 0 .6rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}
 h3{font-size:.95rem;margin:1.2rem 0 .4rem}
@@ -25,7 +25,7 @@ code{background:var(--bg-secondary);padding:.05rem .35rem;border-radius:.3rem;fo
 .links a{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;text-decoration:none;padding:.3rem .7rem;border:1px solid var(--border);border-radius:999px;background:var(--bg-secondary);color:var(--color)}
 .links a:hover{border-color:var(--accent);color:var(--accent)}
 .widget{border:1px solid var(--border);border-radius:.6rem;background:var(--bg-secondary);padding:1rem;margin:1rem 0}
-.widget .hint{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem}
+.widget .hint{font-size:.78rem;color:var(--muted);font-style:italic;margin-bottom:.6rem}
 .widget canvas{display:block;max-width:100%;border-radius:.4rem;background:var(--background);border:1px solid var(--border);touch-action:none}
 .wrow{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start}
 .wrow>div{flex:1;min-width:260px}
@@ -34,10 +34,10 @@ code{background:var(--bg-secondary);padding:.05rem .35rem;border-radius:.3rem;fo
 .controls{display:flex;gap:.9rem;flex-wrap:wrap;align-items:center;margin:.6rem 0}
 .controls label{font-size:.75rem;color:var(--muted);display:flex;gap:.45rem;align-items:center}
 .controls input[type=range]{width:150px;accent-color:var(--accent)}
-button{font:inherit;padding:.35rem .9rem;border:1px solid var(--border);border-radius:.35rem;background:var(--accent);color:#fff;cursor:pointer;font-size:.8rem}
+button{font:inherit;padding:.35rem .9rem;border:1px solid var(--border);border-radius:.35rem;background:var(--accent);color:var(--accent-ink);cursor:pointer;font-size:.8rem}
 button.secondary{background:var(--background);color:var(--color)}
 button[aria-pressed="true"]{outline:2px solid var(--accent)}
-.takeaway{background:var(--bg-secondary);border-left:3px solid var(--accent);border-radius:.4rem;padding:.7rem 1rem;font-size:.88rem;margin:1rem 0}
+.takeaway{background:var(--bg-secondary);border:1px solid var(--border);border-radius:.4rem;padding:.7rem 1rem;font-size:.88rem;margin:1rem 0}
 .claim{background:var(--bg-secondary);border-radius:.5rem;padding:.8rem 1rem;margin:.6rem 0;font-size:.88rem}
 .claim b{color:var(--accent)}
 .legend{display:flex;gap:1rem;flex-wrap:wrap;font-size:.78rem;margin:.5rem 0}
@@ -61,7 +61,7 @@ details th:first-child,details td:first-child{text-align:left}
 .pool-out i{width:34px;height:34px;border-radius:6px;display:inline-block;border:1px solid var(--border)}
 .tabs{display:flex;gap:.4rem;margin:.6rem 0}
 .tabs button{background:var(--background);color:var(--color)}
-.tabs button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.tabs button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .caption-row{font-size:.85rem;background:var(--background);border:1px solid var(--border);border-radius:.4rem;padding:.55rem .8rem;margin:.4rem 0;display:grid;grid-template-columns:64px 1fr;gap:.7rem;align-items:center}
 .caption-row canvas{width:64px;height:64px;border:0}
 .caption-row .ang{font-size:.7rem;color:var(--muted)}
@@ -77,20 +77,20 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
 </head>
 <body>
 <h1>How image embeddings work</h1>
-<p class="sub">An interactive explainer, from first principles to what our experiments found. Everything on this page runs locally — drag, slide, and press things. No model downloads here; the <a href="index.html">lab</a>, <a href="vector-viz.html">visualizer</a> and <a href="vlm.html">VLM playground</a> are where you run the real encoders.</p>
+<p class="sub">An interactive explainer, from first principles to what our experiments found. Everything on this page runs locally: drag, slide, and press things. No model downloads here; the <a href="index.html">lab</a>, <a href="vector-viz.html">visualizer</a> and <a href="vlm.html">VLM playground</a> are where you run the real encoders.</p>
 <div class="links"><a href="index.html">← Embedding lab</a><a href="vector-viz.html">Vector visualizer</a><a href="layout-report.html">Layout report</a><a href="vlm.html">VLM playground</a><a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">↗ GitHub</a></div>
 
 <section>
 <h2>1 · An embedding is a point; similarity is an angle</h2>
-<p>An embedding is just a list of numbers — a <em>vector</em> — that positions something in a space. A 512-dimensional CLIP embedding is a point in a 512-dimensional space; things the model considers similar end up pointing in similar directions. We can't draw 512 dimensions, but the geometry that matters is already visible in two: similarity between vectors is measured by the <b>cosine of the angle between them</b> — 1 when they point the same way, 0 at right angles, −1 when opposite. Length doesn't matter (embeddings are usually normalized to length 1), only direction.</p>
+<p>An embedding is just a list of numbers, a <em>vector</em>, that positions something in a space. A 512-dimensional CLIP embedding is a point in a 512-dimensional space; things the model considers similar end up pointing in similar directions. We can't draw 512 dimensions, but the geometry that matters is already visible in two: similarity between vectors is measured by the <b>cosine of the angle between them</b>: 1 when they point the same way, 0 at right angles, −1 when opposite. Length doesn't matter (embeddings are usually normalized to length 1), only direction.</p>
 <div class="widget">
   <div class="hint">Drag the two arrowheads</div>
   <div class="wrow">
     <div><canvas id="w1" width="340" height="340" aria-label="Two draggable vectors showing the angle between them"></canvas></div>
     <div>
       <div class="readout">cosine similarity <b id="w1-cos">0.87</b><br><span style="color:var(--muted);font-size:.8rem">angle <span id="w1-ang">30°</span></span></div>
-      <p style="font-size:.82rem">cos(θ) = (a·b) / (|a||b|) — the dot product of the two vectors, divided by their lengths. In 512 dimensions the formula is identical, just with a longer sum.</p>
-      <p style="font-size:.82rem;color:var(--muted)">Every number this site reports — "0.87 similarity" — is exactly this, computed in the model's space.</p>
+      <p style="font-size:.82rem">cos(θ) = (a·b) / (|a||b|): the dot product of the two vectors, divided by their lengths. In 512 dimensions the formula is identical, just with a longer sum.</p>
+      <p style="font-size:.82rem;color:var(--muted)">Every number this site reports ("0.87 similarity") is exactly this, computed in the model's space.</p>
     </div>
   </div>
 </div>
@@ -98,16 +98,16 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
 
 <section>
 <h2>2 · From pixels to patches to tokens</h2>
-<p>A vision transformer (ViT) can't look at pixels one by one — it chops the image into a grid of <b>patches</b> and treats each patch like a word in a sentence. Each patch is flattened, passed through a learned projection, and becomes a <b>token</b>: a vector describing that patch. CLIP-B/32 uses 32-pixel patches (a 224×224 image → 7×7 = 49 tokens); SigLIP-B/16 uses 16 (196 tokens); Florence-2's DaViT works at 768×768. Smaller patches = more tokens = more detail = more compute.</p>
+<p>A vision transformer (ViT) can't look at pixels one by one, so it chops the image into a grid of <b>patches</b> and treats each patch like a word in a sentence. Each patch is flattened, passed through a learned projection, and becomes a <b>token</b>: a vector describing that patch. CLIP-B/32 uses 32-pixel patches (a 224×224 image → 7×7 = 49 tokens); SigLIP-B/16 uses 16 (196 tokens); Florence-2's DaViT works at 768×768. Smaller patches = more tokens = more detail = more compute.</p>
 <div class="widget">
-  <div class="hint">Slide to change patch size · hover the image</div>
+  <div class="hint">Slide to change patch size · tap or hover the image</div>
   <div class="wrow">
     <div><canvas id="w2" width="336" height="336" aria-label="Corpus image with a patch grid overlay"></canvas></div>
     <div>
       <div class="controls"><label>patch size <input type="range" id="w2-p" min="0" max="3" step="1" value="1"></label></div>
       <div class="readout"><b id="w2-count">49</b> tokens <span style="color:var(--muted)">(<span id="w2-desc">224÷32 = 7 × 7</span>)</span></div>
       <p style="font-size:.82rem" id="w2-hover">Hover a patch: each one becomes a separate token.</p>
-      <p style="font-size:.82rem;color:var(--muted)">This is why fixed-resolution encoders can't read small text — at 224px, a whole word can disappear inside one 32px patch. (That's what the <a href="tiling-report.html">tiling experiments</a> attack.)</p>
+      <p style="font-size:.82rem;color:var(--muted)">This is why fixed-resolution encoders can't read small text: at 224px, a whole word can disappear inside one 32px patch. (That's what the <a href="tiling-report.html">tiling experiments</a> attack.)</p>
     </div>
   </div>
 </div>
@@ -115,9 +115,9 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
 
 <section>
 <h2>3 · Position embeddings: the "where" tag</h2>
-<p>A transformer is naturally order-blind — a bag of tokens. So before anything else, each token gets a <b>position embedding</b> added to it: a learned "I am patch (3,5)" tag baked into the token's numbers. From that moment on, <em>what</em> a patch shows and <em>where</em> it sits are mixed together in the same vector. This single design decision is why the question "does an embedding encode what-is-where?" is interesting at all.</p>
+<p>A transformer is naturally order-blind, a bag of tokens. So before anything else, each token gets a <b>position embedding</b> added to it: a learned "I am patch (3,5)" tag baked into the token's numbers. From that moment on, <em>what</em> a patch shows and <em>where</em> it sits are mixed together in the same vector. This single design decision is why the question "does an embedding encode what-is-where?" is interesting at all.</p>
 <div class="widget">
-  <div class="hint">Scramble the patches — content identical, layout destroyed</div>
+  <div class="hint">Scramble the patches: content identical, layout destroyed</div>
   <div class="wrow">
     <div><canvas id="w3" width="336" height="336" aria-label="Image whose patches can be shuffled"></canvas></div>
     <div>
@@ -127,7 +127,7 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
         <button class="secondary" data-g="4">shuffle 4×4</button>
         <button class="secondary" data-g="8">shuffle 8×8</button>
       </div>
-      <p style="font-size:.82rem">Every pixel is still there — the histogram is untouched. Only the arrangement changed. A pure "bag of semantics" model should embed these identically; a layout-aware one shouldn't.</p>
+      <p style="font-size:.82rem">Every pixel is still there; the histogram is untouched. Only the arrangement changed. A pure "bag of semantics" model should embed these identically; a layout-aware one shouldn't.</p>
       <p style="font-size:.82rem;color:var(--muted)">This exact transform (same seeded permutation) is experiment 1 of the <a href="layout-report.html">layout report</a>. Hold this thought.</p>
     </div>
   </div>
@@ -136,10 +136,10 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
 
 <section>
 <h2>4 · The transformer mixes; pooling summarizes</h2>
-<p>Attention layers let every token look at every other token — after a dozen layers, each token has absorbed context from the whole image. But you still have 49–577 token vectors and you want <b>one</b> embedding. That last step, <b>pooling</b>, quietly decides what survives:</p>
-<p><b>Mean-pooling</b> averages all tokens. Averaging is <em>order-blind</em>: rearrange the tokens and the mean is identical. <b>CLS pooling</b> instead uses one special summary token that <em>attends</em> to the others — and attention weights can depend on position, so arrangement leaks into the summary.</p>
+<p>Attention layers let every token look at every other token; after a dozen layers, each token has absorbed context from the whole image. But you still have 49–577 token vectors and you want <b>one</b> embedding. That last step, <b>pooling</b>, quietly decides what survives:</p>
+<p><b>Mean-pooling</b> averages all tokens. Averaging is <em>order-blind</em>: rearrange the tokens and the mean is identical. <b>CLS pooling</b> instead uses one special summary token that <em>attends</em> to the others, and attention weights can depend on position, so arrangement leaks into the summary.</p>
 <div class="widget">
-  <div class="hint">Same nine tokens, two arrangements — pool them</div>
+  <div class="hint">Same nine tokens, two arrangements. Pool them</div>
   <div class="pooldemo">
     <div><h3>Arrangement A</h3><div class="pgrid" id="w4-a"></div></div>
     <div><h3>Arrangement B (shuffled)</h3><div class="pgrid" id="w4-b"></div></div>
@@ -165,21 +165,21 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
     <button aria-pressed="false" data-mode="vlm">VLM encoder (Florence-2)</button>
   </div>
   <canvas id="w5" width="720" height="300" aria-label="Animated simulation of a training objective organizing points"></canvas>
-  <p style="font-size:.82rem" id="w5-desc">Contrastive training pulls each image toward its caption and pushes it from every other caption. Whatever the caption doesn't mention — orientation, layout, viewpoint — earns no gradient, and the space learns to discard it.</p>
+  <p style="font-size:.82rem" id="w5-desc">Contrastive training pulls each image toward its caption and pushes it from every other caption. Whatever the caption doesn't mention (orientation, layout, viewpoint) earns no gradient, and the space learns to discard it.</p>
 </div>
-<p style="font-size:.86rem"><b>Self-supervised</b> (DINOv2): different crops/augmentations of the <em>same</em> image are pulled together — no language anywhere, so "similar" means visually, structurally similar. <b>VLM encoders</b> (Florence-2's DaViT) aren't trained to make a nice space at all: their tokens feed a language decoder that must answer "read the text", "where is the dog" — so <em>what-is-where must survive</em>, or the decoder starves.</p>
+<p style="font-size:.86rem"><b>Self-supervised</b> (DINOv2): different crops/augmentations of the <em>same</em> image are pulled together, with no language anywhere, so "similar" means visually, structurally similar. <b>VLM encoders</b> (Florence-2's DaViT) aren't trained to make a nice space at all: their tokens feed a language decoder that must answer "read the text" and "where is the dog", so <em>what-is-where must survive</em> or the decoder starves.</p>
 </section>
 
 <section>
 <h2>6 · Honest measurement: floors</h2>
-<p>Here's a trap: cosine similarities from different models live on different scales. Two <em>unrelated</em> images score ≈0.15 on DINOv2 but ≈0.69 on Florence. A "0.7 similarity" is impressive for one model and means <em>nothing</em> for the other. So every experiment reports the <b>different-image floor</b> — the average similarity of unrelated images — and normalizes against it: <code>(sim − floor)/(1 − floor)</code>. In high dimensions random directions are nearly orthogonal (try the slider), so these high floors are a property of the <em>model's</em> space, not of geometry.</p>
+<p>Here's a trap: cosine similarities from different models live on different scales. Two <em>unrelated</em> images score ≈0.15 on DINOv2 but ≈0.69 on Florence. A "0.7 similarity" is impressive for one model and means <em>nothing</em> for the other. So every experiment reports the <b>different-image floor</b> (the average similarity of unrelated images) and normalizes against it: <code>(sim − floor)/(1 − floor)</code>. In high dimensions random directions are nearly orthogonal (try the slider), so these high floors are a property of the <em>model's</em> space, not of geometry.</p>
 <div class="widget">
-  <div class="hint">Cosine of random vector pairs vs dimensions — and the real model floors</div>
+  <div class="hint">Cosine of random vector pairs vs dimensions, plus the real model floors</div>
   <div class="wrow">
     <div><canvas id="w6" width="420" height="240" aria-label="Histogram of cosines between random vectors"></canvas></div>
     <div>
       <div class="controls"><label>dimensions <input type="range" id="w6-d" min="0" max="5" step="1" value="3"></label> <span class="readout" style="margin:0">D = <b id="w6-dval">512</b></span></div>
-      <p style="font-size:.82rem">Random unit vectors concentrate near cosine 0 as D grows. Real images aren't random — models see shared statistics (edges, sky, gray letterbox) — so their floors sit far above 0, and differ per model:</p>
+      <p style="font-size:.82rem">Random unit vectors concentrate near cosine 0 as D grows. Real images aren't random (models see shared statistics: edges, sky, gray letterbox) so their floors sit far above 0, and differ per model:</p>
       <div id="w6-floors" style="font-size:.82rem;font-variant-numeric:tabular-nums;color:var(--muted)">loading floors…</div>
     </div>
   </div>
@@ -188,7 +188,7 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
 
 <section>
 <h2>7 · When can you say "same image"?</h2>
-<p>The practical question behind all of this: given two embeddings, <b>what cosine value lets you claim they're the same image with high confidence?</b> It's a separation problem. Plot two distributions: similarities of <em>different</em> images (the impostors) and similarities of an image to its own transformed self. If a threshold cleanly splits them, everything above it is "same image" — the highest impostor score is your safety line. Drag the threshold and watch both error rates; switch models and transform groups.</p>
+<p>The practical question behind all of this: given two embeddings, <b>what cosine value lets you claim they're the same image with high confidence?</b> It's a separation problem. Plot two distributions: similarities of <em>different</em> images (the impostors) and similarities of an image to its own transformed self. If a threshold cleanly splits them, everything above it is "same image"; the highest impostor score is your safety line. Drag the threshold and watch both error rates; switch models and transform groups.</p>
 <div class="widget">
   <div class="hint">Drag the threshold line · impostors in gray, same-image pairs in color</div>
   <div class="controls">
@@ -209,12 +209,12 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
 
 <section>
 <h2>8 · What a VLM does differently</h2>
-<p>An embedding model <em>reduces</em> an image to a vector. A VLM <em>reads</em> it: Florence-2's DaViT encoder produces 577 tokens, and a small language decoder consumes them like a sentence, writing captions or transcribing text. We can still steal an embedding from it (mean-pool the 577 tokens) — but the encoder's real customer is the decoder, and the decoder's output is a second, sharper window into what the representation keeps. Below are the model's <em>actual captions</em> for our corpus under rotation (from experiment 5 — live data, not mock):</p>
+<p>An embedding model <em>reduces</em> an image to a vector. A VLM <em>reads</em> it: Florence-2's DaViT encoder produces 577 tokens, and a small language decoder consumes them like a sentence, writing captions or transcribing text. We can still steal an embedding from it (mean-pool the 577 tokens), but the encoder's real customer is the decoder, and the decoder's output is a second, sharper window into what the representation keeps. Below are the model's <em>actual captions</em> for our corpus under rotation (from the caption-stability experiment; live data, not mock):</p>
 <div class="widget">
-  <div class="hint">Pick an image — captions are Florence-2's real output at each angle</div>
+  <div class="hint">Pick an image; captions are Florence-2's real output at each angle</div>
   <div class="controls"><select id="w7-img" aria-label="choose corpus image"></select></div>
   <div id="w7-rows">loading captions…</div>
-  <p style="font-size:.82rem;color:var(--muted)">Notice the pattern: embedding cosine stays ~0.8 (benign-looking) while the caption changes completely — and rotated <em>documents</em> stop being read at all.</p>
+  <p style="font-size:.82rem;color:var(--muted)">Notice the pattern: embedding cosine stays ~0.8 (benign-looking) while the caption changes completely, and rotated <em>documents</em> stop being read at all.</p>
 </div>
 </section>
 
@@ -223,17 +223,17 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
 <p>With the machinery above, the <a href="layout-report.html">seven experiments</a> stop being isolated numbers and become one story. Charts load the live results JSONs from this repo.</p>
 <div class="legend" id="model-legend"></div>
 
-<h3>Scramble the patches (§3's transform) — who notices?</h3>
+<h3>Scramble the patches (§3's transform): who notices?</h3>
 <div class="chart" id="c-shuffle"></div>
 <p style="font-size:.86rem">Read with §4 in mind: CLIP (the only CLS-projection here) moves the most; the mean-pooled models barely flinch; the retrieval-tuned Gemini flinches least of all. <b>The chart ranks poolings and objectives, not "how much layout the encoder saw".</b></p>
 
 <h3>Can a probe recover the rotation angle from the embedding?</h3>
 <div class="chart" id="c-probe"></div>
-<p style="font-size:.86rem">Everyone beats 25% chance — the orientation information is <em>in every vector</em>, including the ones whose cosine barely moved. Invariance-of-cosine and absence-of-information are different claims (§4 again). The ordering — Florence &gt; DINOv2 &gt; SigLIP &gt; CLIP — is the thesis ordering: encoders trained to feed a decoder keep the most <em>where</em>.</p>
+<p style="font-size:.86rem">Everyone beats 25% chance: the orientation information is <em>in every vector</em>, including the ones whose cosine barely moved. Invariance-of-cosine and absence-of-information are different claims (§4 again). The ordering, Florence &gt; DINOv2 &gt; SigLIP &gt; CLIP, is the thesis ordering: encoders trained to feed a decoder keep the most <em>where</em>.</p>
 
 <h3>Put the tokens back: equivariance</h3>
 <div class="chart" id="c-equi"></div>
-<p style="font-size:.86rem">Working at the token level (before pooling), we rotate token <em>positions</em> back after rotating the image. DINOv2 recovers a third of the lost similarity — its tokens are portable patch descriptions with position carried alongside (<em>equivariance</em>). Florence gets <em>worse</em>: position is entangled into the token features themselves. Layout isn't metadata for a VLM encoder — it's part of the percept.</p>
+<p style="font-size:.86rem">Working at the token level (before pooling), we rotate token <em>positions</em> back after rotating the image. DINOv2 recovers a third of the lost similarity: its tokens are portable patch descriptions with position carried alongside (<em>equivariance</em>). Florence gets <em>worse</em>: position is entangled into the token features themselves. Layout isn't metadata for a VLM encoder — it's part of the percept.</p>
 
 <h3>Mirror it: invariance depends on content</h3>
 <div class="chart" id="c-mirror"></div>
@@ -241,19 +241,19 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
 
 <h3>Does the meaning survive? Caption retrieval under transforms</h3>
 <div class="chart" id="c-align"></div>
-<p style="font-size:.86rem">The image must find its own caption among 15 (image↔text cosine, top-1). CLIP survives shuffling that wrecks its image↔image cosine — the vector moved, but stayed in the right neighborhood. Gemini Embedding 2 is transform-proof here. Meanwhile (§7) Florence's captions were <em>destroyed</em> by rotations its cosine shrugged at: <b>semantic robustness and vector robustness are different axes.</b></p>
+<p style="font-size:.86rem">The image must find its own caption among 15 (image↔text cosine, top-1). CLIP survives shuffling that wrecks its image↔image cosine: the vector moved, but stayed in the right neighborhood. Gemini Embedding 2 is transform-proof here. Meanwhile (§8) Florence's captions were <em>destroyed</em> by rotations its cosine shrugged at: <b>semantic robustness and vector robustness are different axes.</b></p>
 
 <h2>The five claims</h2>
-<div class="claim"><b>1.</b> Layout information is in <em>every</em> image embedding — a probe recovers orientation from all five models.</div>
+<div class="claim"><b>1.</b> Layout information is in <em>every</em> image embedding: a probe recovers orientation from all five models.</div>
 <div class="claim"><b>2.</b> How much the pooled vector <em>moves</em> measures the aggregation (CLS vs mean-pool), not the encoder. State your pooling or your invariance claim is meaningless.</div>
 <div class="claim"><b>3.</b> Encoders carry position differently: DINOv2 is substantially equivariant; Florence entangles position into its token features.</div>
-<div class="claim"><b>4.</b> Semantic robustness ≠ vector robustness — and which transforms are "safe" depends on the content (mirrored beach vs mirrored document).</div>
+<div class="claim"><b>4.</b> Semantic robustness ≠ vector robustness, and which transforms are "safe" depends on the content (mirrored beach vs mirrored document).</div>
 <div class="claim"><b>5.</b> "VLM-native" describes a lineage, not an embedding: Gemini's retrieval-tuned head squeezes layout <em>out</em> of a VLM-lineage encoder. The head's objective decides what survives.</div>
 
-<div class="takeaway"><b>Practical guidance.</b> Picking an embedding for search/retrieval? Layout-blindness is a feature — retrieval-tuned spaces (Gemini-class, CLIP-style) are what you want, and our caption-retrieval numbers show why. Building anything spatial (region search, document layout, "what changed where")? Pooled vectors throw away exactly what you need — work with token grids, or an encoder like DINOv2 whose structure survives. And never compare cosines across models without floors (§6).</div>
+<div class="takeaway"><b>Practical guidance.</b> Picking an embedding for search/retrieval? Layout-blindness is a feature: retrieval-tuned spaces (Gemini-class, CLIP-style) are what you want, and our caption-retrieval numbers show why. Building anything spatial (region search, document layout, "what changed where")? Pooled vectors throw away exactly what you need; work with token grids, or an encoder like DINOv2 whose structure survives. And never compare cosines across models without floors (§6).</div>
 </section>
 
-<p class="note">All numbers come from the repo's <code>results-*.json</code>, generated by <code>scripts/experiment-*.mjs</code> (see the <a href="layout-report.html">layout report</a> for method + caveats — n=15, one seed, closed-model caveats for Gemini). Charts follow a validated colorblind-safe palette; every chart has a data table (<em>view data</em>). Built as part of the <a href="https://github.com/PaulKinlan/image-embedding-lab">image-embedding-lab</a> learning project.</p>
+<p class="note">All numbers come from the repo's <code>results-*.json</code>, generated by <code>scripts/experiment-*.mjs</code> (see the <a href="layout-report.html">layout report</a> for method and caveats: n=15, one seed, closed-model caveats for Gemini). Charts follow a validated colorblind-safe palette; every chart has a data table (<em>view data</em>). Built as part of the <a href="https://github.com/PaulKinlan/image-embedding-lab">image-embedding-lab</a> learning project.</p>
 
 <script type="module">
 import { mulberry32 } from './lib/vector-viz.mjs';
@@ -360,13 +360,16 @@ function initPatches() {
     $('w2-desc').textContent = `224÷${p} = ${n} × ${n}`;
   }
   $('w2-p').addEventListener('input', (e) => { p = sizes[+e.target.value]; hover = null; draw(); });
-  $('w2').addEventListener('pointermove', (e) => {
+  // pointerdown covers touch (no hover on phones); pointermove covers mouse hover
+  const pick = (e) => {
     const r = $('w2').getBoundingClientRect();
     const n = Math.floor(224 / p), cell = r.width / n;
     hover = { x: Math.min(n - 1, Math.floor((e.clientX - r.left) / cell)), y: Math.min(n - 1, Math.floor((e.clientY - r.top) / cell)) };
     $('w2-hover').textContent = `patch (${hover.x}, ${hover.y}) → token #${hover.y * n + hover.x} of ${n * n}`;
     draw();
-  });
+  };
+  $('w2').addEventListener('pointermove', pick);
+  $('w2').addEventListener('pointerdown', pick);
   $('w2').addEventListener('pointerleave', () => { hover = null; draw(); });
   draw();
 }
@@ -436,7 +439,7 @@ function initShuffle() {
   function show(fn, name) {
     const a = fn(vals), b = fn(order.map((i) => vals[i]));
     const same = Math.abs(a.h - b.h) < 0.5 && Math.abs(a.l - b.l) < 0.5;
-    $('w4-out').innerHTML = `${name}: A → <i style="background:${colorOf(a)}"></i> B → <i style="background:${colorOf(b)}"></i> <b>${same ? 'identical — the shuffle is invisible' : 'different — arrangement leaked into the summary'}</b>`;
+    $('w4-out').innerHTML = `${name}: A → <i style="background:${colorOf(a)}"></i> B → <i style="background:${colorOf(b)}"></i> <b>${same ? 'identical: the shuffle is invisible' : 'different: arrangement leaked into the summary'}</b>`;
   }
   $('w4-mean').addEventListener('click', () => show(mean, 'mean-pool'));
   $('w4-cls').addEventListener('click', () => show(cls, 'CLS-style'));
@@ -476,7 +479,7 @@ function initShuffle() {
         ctx.strokeRect(tx - 6, ty - 6, 12, 12);                          // caption: square
       }
       ctx.fillStyle = css('--muted');
-      ctx.fillText('dots = images, squares = their captions — matched pairs pulled together', 12, H - 10);
+      ctx.fillText('dots = images, squares = their captions; matched pairs pulled together', 12, H - 10);
     } else if (mode === 'ssl') {
       for (const v of views) {
         ctx.fillStyle = `hsl(${v.hue} 70% 50%)`;
@@ -486,7 +489,7 @@ function initShuffle() {
         }
       }
       ctx.fillStyle = css('--muted');
-      ctx.fillText('each color = augmented views (crops/flips) of one image, pulled to one point — no language involved', 12, H - 10);
+      ctx.fillText('each color = augmented views (crops/flips) of one image, pulled to one point; no language involved', 12, H - 10);
     } else {
       // VLM: token grid feeding a decoder that emits text
       const g = 6, cell = 20, gx = 40, gy = 40;
@@ -510,14 +513,14 @@ function initShuffle() {
         ctx.beginPath(); ctx.moveTo(gx + g * cell + 6, sy); ctx.lineTo(dx - 8, gy + 55); ctx.stroke();
       }
       ctx.fillStyle = css('--muted');
-      ctx.fillText('the decoder must answer “what does it say?” and “where is it?” — so the tokens must keep layout', 12, H - 10);
+      ctx.fillText('the decoder must answer “what does it say?” and “where is it?”, so the tokens must keep layout', 12, H - 10);
     }
     if (t < 1) raf = requestAnimationFrame(step);
   }
   const desc = {
-    contrastive: 'Contrastive training pulls each image toward its caption and pushes it from every other caption. Whatever the caption doesn\'t mention — orientation, layout, viewpoint — earns no gradient, and the space learns to discard it.',
-    ssl: 'Self-supervised training never sees text: augmented views of the same image are pulled together. "Similar" ends up meaning structurally similar — and geometric structure survives in the tokens.',
-    vlm: 'A VLM\'s vision encoder is graded by its decoder. If layout didn\'t survive into the tokens, the decoder could never OCR a page or localize an object — so position is baked into the features themselves.',
+    contrastive: 'Contrastive training pulls each image toward its caption and pushes it from every other caption. Whatever the caption doesn\'t mention (orientation, layout, viewpoint) earns no gradient, and the space learns to discard it.',
+    ssl: 'Self-supervised training never sees text: augmented views of the same image are pulled together. "Similar" ends up meaning structurally similar, and geometric structure survives in the tokens.',
+    vlm: 'A VLM\'s vision encoder is graded by its decoder. If layout didn\'t survive into the tokens, the decoder could never OCR a page or localize an object, so position is baked into the features themselves.',
   };
   document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => {
     document.querySelectorAll('.tabs button').forEach((x) => x.setAttribute('aria-pressed', x === b));
@@ -580,7 +583,7 @@ function initShuffle() {
   fetch('results-patch-shuffle.json').then((r) => r.json()).then((j) => {
     floors = Object.fromEntries(Object.entries(j.results).map(([k, v]) => [k, v.floor]));
     $('w6-floors').innerHTML = SERIES.map((s) =>
-      `<span style="display:inline-flex;align-items:center;gap:.3rem;margin-right:.8rem"><i style="width:10px;height:10px;border-radius:2px;background:${seriesColor(s.key)};display:inline-block"></i>${s.label} ${floors[s.key]?.toFixed(2) ?? '—'}</span>`).join('');
+      `<span style="display:inline-flex;align-items:center;gap:.3rem;margin-right:.8rem"><i style="width:10px;height:10px;border-radius:2px;background:${seriesColor(s.key)};display:inline-block"></i>${s.label} ${floors[s.key]?.toFixed(2) ?? 'n/a'}</span>`).join('');
     draw(dims[+slider.value]);
   }).catch(() => { $('w6-floors').textContent = 'floors unavailable (serve the repo to load results JSONs)'; });
   draw(512);
@@ -627,7 +630,7 @@ function initShuffle() {
     const fp = d.impostor.filter((v) => v > tau).length;
     const rec = same.filter((v) => v > tau).length;
     $('w8-read').innerHTML = `threshold <b>${tau.toFixed(3)}</b> → false "same" claims: <b style="color:${fp ? 'var(--bad)' : 'var(--good)'}">${fp}/${d.impostor.length}</b> impostor pairs · caught: <b>${rec}/${same.length}</b> transformed pairs (${Math.round(rec / same.length * 100)}%)`;
-    $('w8-summary').textContent = `Impostor ceiling for ${SERIES.find((s) => s.key === model).label}: ${d.ceiling.toFixed(3)} — above it, zero false positives on this corpus (${d.impostor.length} pairs). Recall above the ceiling: ${Math.round(d.groups[group].recallAtCeiling * 100)}% of ${group}.`;
+    $('w8-summary').textContent = `Impostor ceiling for ${SERIES.find((s) => s.key === model).label}: ${d.ceiling.toFixed(3)}; above it, zero false positives on this corpus (${d.impostor.length} pairs). Recall above the ceiling: ${Math.round(d.groups[group].recallAtCeiling * 100)}% of ${group}.`;
   }
   const canvas = $('w8');
   let dragging = false;
@@ -652,9 +655,9 @@ function initShuffle() {
       const d = j.results[s.key];
       const rot = Math.round(d.groups.rotations.recallAtCeiling * 100);
       const crop = Math.round(d.groups.crops.recallAtCeiling * 100);
-      return `${s.label}: claim "same image" above <b>${d.ceiling.toFixed(2)}</b> — that catches ${rot}% of rotations and ${crop}% of crops.`;
+      return `${s.label}: claim "same image" above <b>${d.ceiling.toFixed(2)}</b>, which catches ${rot}% of rotations and ${crop}% of crops.`;
     });
-    $('w8-takeaway').innerHTML = `<b>Rules of thumb from this corpus.</b> ${lines.join(' ')} <span style="color:var(--muted)">Two caveats: the ceiling comes from only ${j.results.clip.impostor.length} impostor pairs — a bigger corpus will push it up, so keep margin; and a threshold is model-specific — never reuse one across models (§6).</span>`;
+    $('w8-takeaway').innerHTML = `<b>Rules of thumb from this corpus.</b> ${lines.join(' ')} <span style="color:var(--muted)">Two caveats: the ceiling comes from only ${j.results.clip.impostor.length} impostor pairs (a bigger corpus will push it up, so keep margin), and a threshold is model-specific; never reuse one across models (§6).</span>`;
   }).catch(() => { $('w8-read').textContent = 'distributions unavailable (serve the repo to load results JSONs)'; });
 })();
 
@@ -806,12 +809,12 @@ Promise.allSettled([
   }
   if (clipAlign.status === 'fulfilled' && gemAlign.status === 'fulfilled') {
     const c = clipAlign.value.results, g = gemAlign.value.results;
-    h3For($('c-align'), 'own-caption top-1 retrieval (of 15) after each transform — CLIP vs Gemini Embedding 2');
+    h3For($('c-align'), 'own-caption top-1 retrieval (of 15) after each transform, CLIP vs Gemini Embedding 2');
     const conds = ['identity', 'shuffle 4×4', 'rotate 90°', 'rotate 45°', 'flip H', 'blur'];
     const rows = [];
     for (const cond of conds) {
-      rows.push({ label: `${cond} — CLIP`, value: c[cond].top1Rate, color: seriesColor('clip') });
-      rows.push({ label: `${cond} — Gemini`, value: g[cond].top1Rate, color: seriesColor('gemini') });
+      rows.push({ label: `${cond} · CLIP`, value: c[cond].top1Rate, color: seriesColor('clip') });
+      rows.push({ label: `${cond} · Gemini`, value: g[cond].top1Rate, color: seriesColor('gemini') });
     }
     barChart($('c-align'), rows, { fmt: (v) => Math.round(v * 15) + '/15' });
   }

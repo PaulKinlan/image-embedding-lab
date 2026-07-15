@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Embedding Invariance Report — Image Embedding Lab</title>
+<title>Embedding Invariance Report · Image Embedding Lab</title>
 <style>
-:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--good:#1a8a3a;--bad:#c0392b;--warn:#e6a700}
-@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--good:#57c97a;--bad:#e06c75;--warn:#d9a441}}
+:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--accent-ink:#fff;--good:#1a8a3a;--bad:#c0392b;--warn:#e6a700}
+@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--accent-ink:#0c1524;--good:#57c97a;--bad:#e06c75;--warn:#d9a441}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:900px;margin:0 auto}
+body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:900px;margin:0 auto}
 h1{font-family:Georgia,serif;font-size:1.8rem;font-weight:normal;margin-bottom:.3rem}
 h2{font-family:Georgia,serif;font-size:1.2rem;font-weight:normal;margin:1.5rem 0 .5rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}
 .sub{color:var(--muted);font-size:.85rem;margin-bottom:1.5rem}
@@ -26,7 +26,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .bar-fill{height:100%;border-radius:3px;position:absolute;left:0;top:0}
 .bar-label{position:relative;z-index:1;font-size:.7rem;font-weight:700;color:#fff;text-shadow:0 0 3px rgba(0,0,0,.5)}
 .floor-row td{font-weight:700;border-top:2px solid var(--border)}
-.finding{font-size:.85rem;padding:.8rem;background:var(--bg-secondary);border-left:3px solid var(--accent);border-radius:0 .4rem .4rem 0;margin:.8rem 0}
+.finding{font-size:.85rem;padding:.8rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:.4rem;margin:.8rem 0}
 .finding b{color:var(--accent)}
 .note{font-size:.75rem;color:var(--muted);margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);line-height:1.5}
 </style>
@@ -100,15 +100,15 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 </tbody></table>
 
 <h2>Key findings</h2>
-<div class="finding"><b>Patch size does <i>not</i> rank the encoders.</b> With embeddings pooled, SigLIP (patch 16) matches CLIP (patch 32) on rotation, and DINOv2 (patch 14) is close behind. An earlier version of this report compared CLIP's pooled vector against SigLIP/DINOv2's raw <i>unpooled patch grids</i> — rotating an image scrambles a patch grid's token order, which manufactured a fake "small patch = rotation-sensitive" effect. Pooling removes it.</div>
+<div class="finding"><b>Patch size does <i>not</i> rank the encoders.</b> With embeddings pooled, SigLIP (patch 16) matches CLIP (patch 32) on rotation, and DINOv2 (patch 14) is close behind. An earlier version of this report compared CLIP's pooled vector against SigLIP/DINOv2's raw <i>unpooled patch grids</i> (rotating an image scrambles a patch grid's token order, which manufactured a fake "small patch = rotation-sensitive" effect). Pooling removes it.</div>
 
-<div class="finding"><b>The baseline changes the ranking.</b> The different-image floor differs a lot — CLIP 58%, SigLIP 52%, DINOv2 15%. So CLIP's high absolute scores are partly a compressed embedding space (two unrelated images already sit at 58%). Normalized to each model's own floor, rotation robustness is CLIP 64%, SigLIP 70%, DINOv2 67% — comparable. "CLIP is the most invariant" doesn't survive the baseline.</div>
+<div class="finding"><b>The baseline changes the ranking.</b> The different-image floor differs a lot: CLIP 58%, SigLIP 52%, DINOv2 15%. So CLIP's high absolute scores are partly a compressed embedding space (two unrelated images already sit at 58%). Normalized to each model's own floor, rotation robustness is CLIP 64%, SigLIP 70%, DINOv2 67%, comparable. "CLIP is the most invariant" doesn't survive the baseline.</div>
 
 <div class="finding"><b>JPEG q0.9 is negligible.</b> Every transform is embedded twice (raw pixels and a JPEG round-trip); the mean difference is ~1 point. Compression is not what these numbers measure.</div>
 
-<div class="finding"><b>Rotation is the hardest geometric transform — but not catastrophic.</b> 72–85% raw, comfortably above every floor. Photometric changes (grayscale, brightness, blur, occlusion) are nearly free (high 80s–90s): these encoders care about content layout far more than exact pixels.</div>
+<div class="finding"><b>Rotation is the hardest geometric transform, but not catastrophic.</b> 72–85% raw, comfortably above every floor. Photometric changes (grayscale, brightness, blur, occlusion) are nearly free (high 80s–90s): these encoders care about content layout far more than exact pixels.</div>
 
-<div class="finding"><b>Still true:</b> no encoder is fully transformation-invariant — a rotated image is not treated as identical. ViT positional embeddings are absolute, so a turn is a different input. That framing was right in the earlier write-up; only the magnitudes were wrong.</div>
+<div class="finding"><b>Still true:</b> no encoder is fully transformation-invariant: a rotated image is not treated as identical. ViT positional embeddings are absolute, so a turn is a different input. That framing was right in the earlier write-up; only the magnitudes were wrong.</div>
 
 <h2>Per-image breakdown (rotation / crop / flip-H, raw)</h2>
 <table><thead><tr><th>Image</th>
@@ -194,9 +194,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 </tbody></table>
 
 <div class="note">
-<strong>Embedding method:</strong> each image is rendered to a square on a mid-gray background, passed to the vision encoder, and its output is reduced to ONE vector, then L2-normalized — that vector is what the cosine compares. The pooling step matters: <code>image-feature-extraction</code> returns a pooled <code>[1,512]</code> for CLIP but raw patch-token grids for SigLIP <code>[1,196,768]</code> and DINOv2 <code>[1,257,384]</code>; mean-pooling every model's tokens to one vector is what makes them comparable (skipping it compares flattened patch grids, where rotation just reshuffles token order — the artifact that produced the earlier "patch size" result). Every transform is embedded at raw pixels and three JPEG qualities (q0.9 / q0.5 / q0.2); tiling optionally splits the image into crops, embeds each, and pools them. The floor is the mean cosine between distinct images' originals.
+<strong>Embedding method:</strong> each image is rendered to a square on a mid-gray background, passed to the vision encoder, and its output is reduced to ONE vector, then L2-normalized; that vector is what the cosine compares. The pooling step matters: <code>image-feature-extraction</code> returns a pooled <code>[1,512]</code> for CLIP but raw patch-token grids for SigLIP <code>[1,196,768]</code> and DINOv2 <code>[1,257,384]</code>; mean-pooling every model's tokens to one vector is what makes them comparable (skipping it compares flattened patch grids, where rotation just reshuffles token order (the artifact that produced the earlier "patch size" result). Every transform is embedded at raw pixels and three JPEG qualities (q0.9 / q0.5 / q0.2); tiling optionally splits the image into crops, embeds each, and pools them. The floor is the mean cosine between distinct images' originals.
 <br><br>
-<strong>Same method on a VLM:</strong> a vision-language model's encoder builds the same token grid, so you can tap it and pool it identically — Florence-2's <code>encode_image</code> gives <code>[1,577,768]</code> → mean-pool → a 768-d image embedding. An embedding is just one pooled hidden state; the alternative is running that hidden state through the output layer to write text. Try it in the <a href="vlm.html">VLM playground</a>.
+<strong>Same method on a VLM:</strong> a vision-language model's encoder builds the same token grid, so you can tap it and pool it identically; Florence-2's <code>encode_image</code> gives <code>[1,577,768]</code> → mean-pool → a 768-d image embedding. An embedding is just one pooled hidden state; the alternative is running that hidden state through the output layer to write text. Try it in the <a href="vlm.html">VLM playground</a>.
 <br><br>
 Reproduce: <code>node cli.mjs test-images/* --model clip|siglip|dinov2|siglip384|clip-l --tiles N --json</code>. Data + code: <a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">GitHub</a>.
 </div>
