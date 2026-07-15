@@ -32,8 +32,13 @@ db.run(`CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);`);
 db.run(`INSERT OR REPLACE INTO meta VALUES ('models', ?)`, [JSON.stringify(MODELS)]);
 db.run(`INSERT OR REPLACE INTO meta VALUES ('license', 'Images via picsum.photos (Unsplash-sourced, Unsplash license)')`);
 
+// ids.txt maps "ordinal picsum-id" (the corpus is fetched by unique catalog id — seeds collide)
+const idMap = Object.fromEntries(
+  fs.readFileSync(path.join(DIR, "ids.txt"), "utf8").trim().split("\n").map((l) => l.split(" "))
+);
 for (const f of files) {
-  db.run(`INSERT OR IGNORE INTO images (file, source) VALUES (?, ?)`, [f, `https://picsum.photos/seed/iel-${parseInt(f.slice(4, 8))}/384`]);
+  const ord = String(parseInt(f.slice(4, 8)));
+  db.run(`INSERT OR IGNORE INTO images (file, source) VALUES (?, ?)`, [f, `https://picsum.photos/id/${idMap[ord]}/384`]);
 }
 
 const T = await import("@huggingface/transformers");

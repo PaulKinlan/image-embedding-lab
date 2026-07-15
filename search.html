@@ -43,17 +43,19 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .status{font-size:.82rem;color:var(--muted);margin:.8rem 0;padding:.5rem .8rem;background:var(--bg-secondary);border-radius:.4rem;display:none}
 .status.show{display:block}
 .status.error{color:var(--bad)}
-.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin:1rem 0}
-.col h3{font-size:.9rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.45rem}
-.col h3 i{width:12px;height:12px;border-radius:3px;display:inline-block}
-.col .t{font-size:.7rem;color:var(--muted);font-weight:normal}
-.hit{display:grid;grid-template-columns:72px 1fr;gap:.6rem;align-items:center;padding:.35rem;border:1px solid var(--border);border-radius:.45rem;margin-bottom:.45rem;background:var(--bg-secondary)}
-.hit img{width:72px;height:72px;object-fit:cover;border-radius:.35rem;background:#fff}
-.hit .score{font-variant-numeric:tabular-nums;font-size:.92rem;font-weight:600}
-.hit .rank{font-size:.7rem;color:var(--muted)}
+/* columns stay side-by-side at every width (rank comparison is the whole point), so cells are
+   vertical cards with the cosine UNDER the image where there is always room */
+.cols{display:grid;grid-template-columns:repeat(var(--ncols,1),minmax(0,1fr));gap:.6rem;margin:1rem 0}
+.col h3{font-size:.82rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.col h3 i{width:12px;height:12px;border-radius:3px;display:inline-block;flex:none}
+.col .t{font-size:.66rem;color:var(--muted);font-weight:normal;width:100%}
+.hit{padding:.3rem;border:1px solid var(--border);border-radius:.45rem;margin-bottom:.45rem;background:var(--bg-secondary);max-width:300px}
+.hit img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:.35rem;background:#fff;display:block}
+.hit .score{font-variant-numeric:tabular-nums;font-size:.9rem;font-weight:600;display:block;margin-top:.25rem}
+.hit .rank{font-size:.68rem;color:var(--muted)}
 .hit.above{border-color:var(--good)}
 .hit.above .score{color:var(--good)}
-.hit .thr{font-size:.66rem;color:var(--good)}
+.hit .thr{font-size:.62rem;color:var(--good);line-height:1.3}
 .note{font-size:.75rem;color:var(--muted);margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border)}
 </style>
 </head>
@@ -236,17 +238,53 @@ $('file-input').addEventListener('change', (e) => {
 });
 
 // --- embedding + search ---
+// Self-calibrating loader: after loading, embed a known corpus image and compare against its
+// INDEX vector. If the backend's output doesn't reproduce the index (wrong dims, broken q8 on
+// WebGPU, precision drift), fall back to WASM and re-check; if still off, say so loudly.
+// This is what turns "identity scored 0.5 and I don't know why" into a visible diagnosis.
+const CAL_MIN = 0.98;
+async function calibrate(model, extractor) {
+  const { files, vecs, dim } = getMatrix(model);
+  const file = files[0];
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = 'search-images/' + file; });
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const c = document.createElement('canvas');
+  const N = Math.max(iw, ih);
+  c.width = N; c.height = N;
+  coreRender(c.getContext('2d'), img, {}, N);
+  const sq = fitToSquare(c.getContext('2d').getImageData(0, 0, N, N), SIZE);
+  const out = await extractor(new RawImage(sq.data, sq.width, sq.height, 4));
+  const q = poolEmbedding(out.data, out.dims);
+  if (q.length !== dim) return { ok: false, why: `query is ${q.length}-d but the index is ${dim}-d (dims ${JSON.stringify(out.dims)})` };
+  let dot = 0;
+  for (let d = 0; d < dim; d++) dot += q[d] * vecs[d];
+  return dot >= CAL_MIN ? { ok: true, cos: dot } : { ok: false, why: `calibration cosine ${dot.toFixed(3)} < ${CAL_MIN} vs the index`, cos: dot };
+}
 async function ensureExtractor(model) {
   if (extractors[model]) return extractors[model];
   setStatus(`loading ${MODELS[model].label} (${MODELS[model].note}, cached after first time)…`);
   let backend = 'wasm';
   try { if (navigator.gpu && await navigator.gpu.requestAdapter()) backend = 'webgpu'; } catch { /* wasm */ }
-  // dtype q8 on EVERY backend: the index was built with q8 weights, and WebGPU would default
-  // to fp32 — different precision than the index costs ~0.14 cosine on identical pixels.
-  const opts = backend === 'webgpu' ? { device: 'webgpu', dtype: 'q8' } : { dtype: 'q8' };
-  extractors[model] = await pipeline('image-feature-extraction', MODELS[model].id, opts);
-  log(`${model} loaded on ${backend}`);
-  return extractors[model];
+  // dtype q8 on EVERY backend: the index was built with q8 weights.
+  let ex = await pipeline('image-feature-extraction', MODELS[model].id, backend === 'webgpu' ? { device: 'webgpu', dtype: 'q8' } : { dtype: 'q8' });
+  let cal = await calibrate(model, ex);
+  log(`${model} on ${backend}: calibration`, cal);
+  if (!cal.ok && backend === 'webgpu') {
+    setStatus(`${MODELS[model].label} on WebGPU failed calibration (${cal.why}); falling back to WASM…`);
+    ex = await pipeline('image-feature-extraction', MODELS[model].id, { dtype: 'q8' });
+    backend = 'wasm';
+    cal = await calibrate(model, ex);
+    log(`${model} wasm recalibration`, cal);
+  }
+  if (!cal.ok) {
+    setStatus(`${MODELS[model].label}: query pipeline does not reproduce the index (${cal.why}). Results would be garbage; refusing to search with this model.`, 'error');
+    throw new Error(`${model} failed calibration: ${cal.why}`);
+  }
+  MODELS[model].backend = backend;
+  MODELS[model].calCos = cal.cos;
+  extractors[model] = ex;
+  return ex;
 }
 
 async function embedQuery(model) {
@@ -258,6 +296,7 @@ async function embedQuery(model) {
 
 function topK(model, q, k = 12) {
   const { files, vecs, dim, n } = getMatrix(model);
+  if (q.length !== dim) throw new Error(`${model}: query embedding is ${q.length}-d but the index is ${dim}-d: pipeline mismatch`);
   const scores = new Float32Array(n);
   for (let r = 0; r < n; r++) {
     let dot = 0;
@@ -286,6 +325,7 @@ async function runSearch() {
   const selected = [...document.querySelectorAll('#modelpick input:checked')].map((c) => c.dataset.model);
   if (!selected.length) { setStatus('Select at least one model.', 'error'); return; }
   const gen = ++searchGen;
+  $('cols').style.setProperty('--ncols', selected.length);
   // drop columns for deselected models
   document.querySelectorAll('.col').forEach((c) => { if (!selected.includes(c.dataset.model)) c.remove(); });
   try {
@@ -299,15 +339,15 @@ async function runSearch() {
       const hits = topK(model, q);
       const tSearch = performance.now() - t1;
       const ceiling = ceilings[model];
-      col.querySelector('.t').textContent = `embed ${Math.round(tEmbed)}ms · search ${tSearch.toFixed(1)}ms`;
+      col.querySelector('.t').textContent = `${MODELS[model].backend || ''} q8 · cal ${MODELS[model].calCos?.toFixed(3) ?? 'n/a'} · embed ${Math.round(tEmbed)}ms · search ${tSearch.toFixed(1)}ms`;
       const isSource = (f) => queryLabel === f;
       col.querySelector('.hits').innerHTML = hits.map((h, i) => {
         const above = ceiling != null && h.score > ceiling;
         return `<div class="hit${above ? ' above' : ''}${isSource(h.file) ? '" style="outline:2px solid var(--accent)"' : '"'}>` +
           `<img src="search-images/${h.file}" loading="lazy" alt="result ${i + 1}">` +
-          `<div><span class="score">${h.score.toFixed(3)}</span> <span class="rank">#${i + 1}</span>` +
-          (isSource(h.file) ? `<div class="thr" style="color:var(--accent)">query source image</div>` : '') +
-          (above ? `<div class="thr">above same-image threshold (${ceiling.toFixed(2)})</div>` : '') + `</div></div>`;
+          `<span class="score">${h.score.toFixed(3)} <span class="rank">#${i + 1}</span></span>` +
+          (isSource(h.file) ? `<div class="thr" style="color:var(--accent)">query source</div>` : '') +
+          (above ? `<div class="thr">above threshold ${ceiling.toFixed(2)}</div>` : '') + `</div>`;
       }).join('');
       setStatus('');
     }

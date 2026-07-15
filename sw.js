@@ -10,7 +10,7 @@
 //   another copy (double-storing ~GB models is what pushed the origin into quota eviction).
 // - Only jsdelivr files (the Transformers.js module itself, ~1MB) are stored by us, in
 //   MODEL_CACHE — the library doesn't cache its own JS.
-const IEL_SW_VERSION = '2026-07-15-v2';
+const IEL_SW_VERSION = '2026-07-15-v3';
 const MODEL_CACHE = `iel-models`;
 const SHELL_CACHE = `iel-shell-${IEL_SW_VERSION}`;
 const HF_ORIGINS = ['huggingface.co', 'cdn-lfs.huggingface.co'];
@@ -86,6 +86,26 @@ self.addEventListener('fetch', (e) => {
             return res;
           })
         );
+      })
+    );
+    return;
+  }
+
+  // Search corpus + index: stale-while-revalidate (large, changes rarely — serve instantly
+  // from cache, refresh in the background so a rebuilt index arrives on the next visit)
+  if (url.origin === self.location.origin &&
+      (url.pathname.includes('/search-images/') || url.pathname.endsWith('search-index.sqlite'))) {
+    e.respondWith(
+      caches.open('iel-search').then(async (cache) => {
+        const cached = await cache.match(req);
+        const network = fetch(req).then((res) => {
+          if (res && res.status === 200) {
+            const copy = res.clone();
+            e.waitUntil(cache.put(req, copy).catch(() => {}));
+          }
+          return res;
+        }).catch(() => cached || Response.error());
+        return cached || network;
       })
     );
     return;
