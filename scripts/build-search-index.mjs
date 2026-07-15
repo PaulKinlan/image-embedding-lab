@@ -19,6 +19,12 @@ const MODELS = {
   // config (vlm.html uses fp32 vision on wasm); the page's calibration check verifies the
   // match end-to-end on the user's machine.
   florence: { id: "onnx-community/Florence-2-base-ft", size: 768, dim: 768, florence: true },
+  // NOTE: the Gemma 4 column is built by scripts/build-search-index-gemma4.mjs — it needs
+  // onnxruntime-node >= 1.27 (GatherBlockQuantized bits attr), which cannot share a process
+  // with transformers.js's nested onnxruntime-node 1.21 (the wrong native .so gets dlopened).
+  // Gemini Embedding 2 (hosted API): built with GEMINI_API_KEY; the page asks the user for
+  // their own key at query time.
+  gemini: { id: "gemini-embedding-2", size: 768, dim: 3072, gemini: true },
 };
 
 const DIR = "search-images";
@@ -56,7 +62,24 @@ for (const [m, cfg] of Object.entries(MODELS)) {
   // default, and Node's default is fp32 — same pixels through different weights costs ~0.14
   // cosine. The index must use the SAME precision the querying page will.
   let embedRaw;
-  if (cfg.florence) {
+  if (cfg.gemini) {
+    if (!process.env.GEMINI_API_KEY) { console.log("gemini: GEMINI_API_KEY not set, skipping"); continue; }
+    embedRaw = { native: async (rgba, canvas) => {
+      const b64 = canvas.toBuffer("image/png").toString("base64");
+      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
+        body: JSON.stringify({ content: { parts: [{ inlineData: { mimeType: "image/png", data: b64 } }] } }),
+      });
+      if (!res.ok) throw new Error(`gemini ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      const values = (await res.json()).embedding.values;
+      let mag = 0;
+      for (const x of values) mag += x * x;
+      mag = Math.sqrt(mag) || 1;
+      await new Promise((r) => setTimeout(r, 350));
+      return values.map((x) => x / mag);
+    } };
+  } else if (cfg.florence) {
     const fl = await T.Florence2ForConditionalGeneration.from_pretrained(cfg.id, {
       dtype: { embed_tokens: "fp32", vision_encoder: "fp32", encoder_model: "q8", decoder_model_merged: "q8" },
     });
@@ -81,8 +104,19 @@ for (const [m, cfg] of Object.entries(MODELS)) {
     const c = createCanvas(img.width, img.height);
     c.getContext("2d").drawImage(img, 0, 0);
     const raw = c.getContext("2d").getImageData(0, 0, img.width, img.height);
-    const sq = fitToSquare(raw, cfg.size);
-    const vec = await embedRaw(new T.RawImage(new Uint8ClampedArray(sq.data), sq.width, sq.height, 4));
+    let vec;
+    if (cfg.gemini) {
+      const sq = fitToSquare(raw, cfg.size);                  // shared square render → PNG → API
+      const sc = createCanvas(cfg.size, cfg.size);
+      const sctx = sc.getContext("2d");
+      const idata = sctx.createImageData(cfg.size, cfg.size);
+      idata.data.set(sq.data);
+      sctx.putImageData(idata, 0, 0);
+      vec = await embedRaw.native(sq, sc);
+    } else {
+      const sq = fitToSquare(raw, cfg.size);
+      vec = await embedRaw(new T.RawImage(new Uint8ClampedArray(sq.data), sq.width, sq.height, 4));
+    }
     db.run(`INSERT INTO emb_${m} (image_id, v) VALUES (?, ?)`, [id, new Uint8Array(Float32Array.from(vec).buffer)]);
     if (++n % 50 === 0) {
       console.log(`  ${m} ${n}/${missing.values.length}`);

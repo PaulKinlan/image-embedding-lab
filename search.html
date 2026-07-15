@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="Reverse image search over an 800-image corpus, running entirely in your browser: a SQLite index of CLIP, SigLIP and DINOv2 embeddings, side-by-side rankings per model, crop and rotate the query and watch the scores.">
+<meta name="description" content="Reverse image search over an 800-image corpus, running in your browser: a SQLite index of CLIP, SigLIP, DINOv2, Florence-2, Gemma 4 and Gemini embeddings, side-by-side rankings per model, crop and rotate the query and watch the scores.">
 <title>Reverse image search, three embedding models side by side</title>
 <style>
 :root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--accent-ink:#fff;--good:#1a8a3a;--bad:#c0392b;
-  --s-clip:#2a78d6;--s-siglip:#1baf7a;--s-dinov2:#eda100;--s-florence:#008300}
+  --s-clip:#2a78d6;--s-siglip:#1baf7a;--s-dinov2:#eda100;--s-florence:#008300;--s-gemma4:#e34948;--s-gemini:#4a3aa7}
 @media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--accent-ink:#0c1524;--good:#57c97a;--bad:#e06c75;
-  --s-clip:#3987e5;--s-siglip:#199e70;--s-dinov2:#c98500;--s-florence:#008300}}
+  --s-clip:#3987e5;--s-siglip:#199e70;--s-dinov2:#c98500;--s-florence:#008300;--s-gemma4:#e66767;--s-gemini:#9085e9}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:1100px;margin:0 auto}
@@ -61,7 +61,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </head>
 <body>
 <h1>Reverse image search</h1>
-<p class="sub">An 800-image corpus, indexed offline with three encoders and packed into one SQLite file that this page loads and queries entirely in your browser. Pick a query image, optionally crop and rotate it, and search all three models at once: each column is ranked by that model's own cosine, every hit shows its score, and hits above the model's <a href="explainer.html">same-image threshold</a> are marked. The point is to watch the columns disagree.</p>
+<p class="sub">An 800-image corpus, indexed offline with up to six encoders (CLIP, SigLIP, DINOv2, Florence-2, Gemma 4, Gemini Embedding 2) and packed into one SQLite file that this page loads and queries entirely in your browser. Pick a query image, optionally crop and rotate it, and search the selected models at once: each column is ranked by that model's own cosine, every hit shows its score, and hits above the model's <a href="explainer.html">same-image threshold</a> are marked. The point is to watch the columns disagree.</p>
 <div class="links"><a href="index.html">← Embedding lab</a><a href="explainer.html">How it works</a><a href="vector-viz.html">Vector visualizer</a><a href="layout-report.html">Layout report</a><a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">↗ GitHub</a></div>
 
 <div class="panel">
@@ -97,6 +97,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <p style="font-size:.88rem">Getting an untouched corpus image to score ≈1.0 against itself took closing <b>two</b> runtime gaps, and both are visible here. First, <b>pixels</b>: canvas downscaling is runtime-specific (Skia in your browser, cairo in the offline indexer), so both sides render at native resolution and downscale with the same pure-JS resampler (<code>fitToSquare</code> in the shared <code>lib/</code>); the <b>shared-pipeline scaling</b> toggle switches back to the browser's downscaler so the difference stays demonstrable. Second, <b>precision</b>: the browser's WASM backend runs q8-quantized weights while Node defaults to fp32 — the same pixels through different weights cost ~0.14 cosine — so the index is built q8 and the page forces q8 on every backend. Chapter and verse in <a href="https://github.com/PaulKinlan/image-embedding-lab/blob/master/AGENTS.md">AGENTS.md</a> rule 4: same code, same version, same pixels, same precision.</p>
 <p style="font-size:.88rem">Search here is <b>exact</b>: the query embedding is dot-multiplied against all 800 unit vectors per model, which takes under a millisecond in JavaScript. Approximate indexes (HNSW, IVF) exist for when exact search stops being instant, roughly beyond a few million vectors; at this scale they would add complexity and recall loss for nothing. The index is an ordinary SQLite file (one table per model, Float32 BLOBs) read with sql.js; the same file could be served to sqlite-vec or any vector store later. Query preprocessing is identical to the <a href="index.html">lab</a> pipeline (shared <code>lib/</code> render), so scores here are comparable with every number on this site. Per our <a href="explainer.html">threshold experiments</a>, expect SigLIP to be the most reliable column under rotation and crop, CLIP to trail it, and DINOv2 to fall apart under rotation while matching well otherwise.</p>
 <p style="font-size:.88rem">The corpus deliberately keeps picsum's photographer-series shots (several different photos of the same MacBook-on-table scene, ids 0–12). They double as a ranking smoke test: a healthy model should place the sibling shots directly behind the query's source with a visible score gap, and they demonstrate on real data that scoring above the same-image threshold is evidence, not proof.</p>
+<p style="font-size:.88rem">Two of the columns deserve footnotes. <b>Gemma 4</b> runs the q4 vision-encoder submodel of Gemma 4 E2B via ONNX Runtime Web — its graph takes <em>pre-patchified</em> input (flattened 16×16 patches plus per-patch positions), so the patchify preprocessing is ported from transformers' <code>Gemma4Processor</code> into the shared <code>lib/gemma4.mjs</code>, used identically by the index builder and this page. It is the slowest column: a query is a couple of thousand patch tokens through a 16-layer encoder in WASM. <b>Gemini Embedding 2</b> is a hosted API: the index was built server-side, and querying asks for <em>your</em> API key (kept in your browser's localStorage, sent only to Google's endpoint).</p>
 <p class="note">Corpus images via <a href="https://picsum.photos" target="_blank">picsum.photos</a> (Unsplash-sourced, fetched by unique catalog id). Index built by <code>scripts/build-search-index.mjs</code>. Models run locally via Transformers.js and are cached by the service worker; the SQLite index is ~8 MB.</p>
 
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.js"></script>
@@ -113,7 +114,9 @@ const MODELS = {
   clip: { id: 'Xenova/clip-vit-base-patch32', label: 'CLIP B/32', v: '--s-clip', note: '~100MB', size: 224 },
   siglip: { id: 'Xenova/siglip-base-patch16-224', label: 'SigLIP B/16', v: '--s-siglip', note: '~370MB', size: 224 },
   dinov2: { id: 'Xenova/dinov2-small', label: 'DINOv2-S', v: '--s-dinov2', note: '~85MB', size: 224 },
-  florence: { id: 'onnx-community/Florence-2-base-ft', label: 'Florence-2 (VLM)', v: '--s-florence', note: '~350MB, slower', size: 768, florence: true },
+  florence: { id: 'onnx-community/Florence-2-base-ft', label: 'Florence-2 (VLM)', v: '--s-florence', note: '~350MB, minutes per query on WASM', size: 768, florence: true },
+  gemma4: { id: 'onnx-community/gemma-4-E2B-it-ONNX', label: 'Gemma 4 (VLM)', v: '--s-gemma4', note: '~107MB, slower', size: 768, gemma4: true },
+  gemini: { id: 'gemini-embedding-2', label: 'Gemini Emb. 2 (API)', v: '--s-gemini', note: 'your API key', size: 768, gemini: true },
 };
 const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
@@ -251,6 +254,13 @@ $('file-input').addEventListener('change', (e) => {
 // WebGPU, precision drift), fall back to WASM and re-check; if still off, say so loudly.
 // This is what turns "identity scored 0.5 and I don't know why" into a visible diagnosis.
 const CAL_MIN = 0.98;
+// Per-model input preparation, shared by calibration and querying so they can never diverge.
+function prepareInput(model, rgba) {
+  if (MODELS[model].gemma4) return rgba;                       // gemma resizes itself
+  const sq = fitToSquare(rgba, MODELS[model].size);
+  if (MODELS[model].gemini) return sq;                         // {data,width,height} → PNG → API
+  return new RawImage(sq.data, sq.width, sq.height, 4);
+}
 async function calibrate(model, embedFn) {
   const { files, vecs, dim } = getMatrix(model);
   const file = files[0];
@@ -260,14 +270,82 @@ async function calibrate(model, embedFn) {
   const c = document.createElement('canvas');
   c.width = N; c.height = N;
   coreRender(c.getContext('2d'), img, {}, N);
-  const sq = fitToSquare(c.getContext('2d').getImageData(0, 0, N, N), MODELS[model].size);
-  const q = await embedFn(new RawImage(sq.data, sq.width, sq.height, 4));
+  const q = await embedFn(prepareInput(model, c.getContext('2d').getImageData(0, 0, N, N)));
   if (q.length !== dim) return { ok: false, why: `query is ${q.length}-d but the index is ${dim}-d` };
   let dot = 0;
   for (let d = 0; d < dim; d++) dot += q[d] * vecs[d];
   return dot >= CAL_MIN ? { ok: true, cos: dot } : { ok: false, why: `calibration cosine ${dot.toFixed(3)} < ${CAL_MIN} vs the index`, cos: dot };
 }
+// Native-resolution query render (rotation/crop applied, NO downscale) for models that do
+// their own resizing (Gemma 4's processor resizes to its patch budget internally).
+function renderQueryNative() {
+  const p = queryParams();
+  const iw = queryImage.naturalWidth || queryImage.width, ih = queryImage.naturalHeight || queryImage.height;
+  const N = Math.max(48, Math.min(1024, Math.round(Math.max(iw, ih) * (1 - 2 * p.crop))));
+  const c = document.createElement('canvas');
+  c.width = N; c.height = N;
+  coreRender(c.getContext('2d'), queryImage, p, N);
+  return c.getContext('2d').getImageData(0, 0, N, N);
+}
+
+async function loadOrtWeb() {
+  if (window.ort) return window.ort;
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.min.js';
+    s.onload = res; s.onerror = () => rej(new Error('failed to load onnxruntime-web'));
+    document.head.appendChild(s);
+  });
+  window.ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
+  return window.ort;
+}
+
+function geminiKey() {
+  let k = localStorage.getItem('gemini-api-key') || '';
+  if (!k) {
+    k = (prompt('Gemini API key (stored only in your browser’s localStorage, used directly from your browser):') || '').trim();
+    if (k) localStorage.setItem('gemini-api-key', k);
+  }
+  return k;
+}
+
 async function makeEmbedFn(model, backend) {
+  if (MODELS[model].gemma4) {
+    const ortWeb = await loadOrtWeb();
+    const { gemma4Embed } = await import('./lib/gemma4.mjs');
+    const base = `https://huggingface.co/${MODELS[model].id}/resolve/main/onnx`;
+    const [graph, data] = await Promise.all([
+      fetch(`${base}/vision_encoder_q4.onnx`).then((r) => r.arrayBuffer()),
+      fetch(`${base}/vision_encoder_q4.onnx_data`).then((r) => r.arrayBuffer()),
+    ]);
+    const session = await ortWeb.InferenceSession.create(graph, {
+      executionProviders: [backend === 'webgpu' ? 'webgpu' : 'wasm'],
+      externalData: [{ path: 'vision_encoder_q4.onnx_data', data: new Uint8Array(data) }],
+    });
+    return async (rgba) => gemma4Embed(session, ortWeb, { data: rgba.data, width: rgba.width, height: rgba.height });
+  }
+  if (MODELS[model].gemini) {
+    const key = geminiKey();
+    if (!key) throw new Error('Gemini needs an API key');
+    return async (raw) => {
+      const c = document.createElement('canvas');
+      c.width = raw.width; c.height = raw.height;
+      c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(raw.data), raw.width, raw.height), 0, 0);
+      const b64 = c.toDataURL('image/png').split(',')[1];
+      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({ content: { parts: [{ inlineData: { mimeType: 'image/png', data: b64 } }] } }),
+      });
+      if (res.status === 401 || res.status === 403) { localStorage.removeItem('gemini-api-key'); throw new Error('Gemini rejected the API key'); }
+      if (!res.ok) throw new Error(`Gemini API ${res.status}`);
+      const values = (await res.json()).embedding.values;
+      let mag = 0;
+      for (const x of values) mag += x * x;
+      mag = Math.sqrt(mag) || 1;
+      return Float64Array.from(values, (x) => x / mag);
+    };
+  }
   if (MODELS[model].florence) {
     const dtype = backend === 'webgpu'
       ? { embed_tokens: 'fp16', vision_encoder: 'fp16', encoder_model: 'q4', decoder_model_merged: 'q4' }
@@ -315,8 +393,19 @@ async function ensureExtractor(model) {
 
 async function embedQuery(model) {
   const embedFn = await ensureExtractor(model);
-  const sq = renderQuerySquare(MODELS[model].size);
-  return Float32Array.from(await embedFn(new RawImage(sq.data, sq.width, sq.height, 4)));
+  // Gemma resizes internally, so it gets the native-resolution transform render. Everyone else
+  // goes through prepareInput (native render + shared fitToSquare), identical to calibration;
+  // the naive toggle bypasses the shared resampler to demonstrate the runtime-pixel gap.
+  let input;
+  if (MODELS[model].gemma4) {
+    input = renderQueryNative();
+  } else if (!$('hq').checked) {
+    const sq = renderQuerySquare(MODELS[model].size);
+    input = MODELS[model].gemini ? sq : new RawImage(sq.data, sq.width, sq.height, 4);
+  } else {
+    input = prepareInput(model, renderQueryNative());
+  }
+  return Float32Array.from(await embedFn(input));
 }
 
 function topK(model, q, k = 12) {
@@ -364,7 +453,7 @@ async function runSearch() {
       const hits = topK(model, q);
       const tSearch = performance.now() - t1;
       const ceiling = ceilings[model];
-      col.querySelector('.t').textContent = `${MODELS[model].backend || ''} q8 · cal ${MODELS[model].calCos?.toFixed(3) ?? 'n/a'} · embed ${Math.round(tEmbed)}ms · search ${tSearch.toFixed(1)}ms`;
+      col.querySelector('.t').textContent = `${MODELS[model].gemini ? 'api' : (MODELS[model].backend || '') + (MODELS[model].gemma4 ? ' q4' : MODELS[model].florence ? ' fp32' : ' q8')} · cal ${MODELS[model].calCos?.toFixed(3) ?? 'n/a'} · embed ${Math.round(tEmbed)}ms · search ${tSearch.toFixed(1)}ms`;
       const isSource = (f) => queryLabel === f;
       col.querySelector('.hits').innerHTML = hits.map((h, i) => {
         const above = ceiling != null && h.score > ceiling;

@@ -1,92 +1,78 @@
-// Gemma 4 Vision Encoder — loaded via ONNX Runtime Web
-// The vision_encoder_q4.onnx is a standalone submodel of Gemma 4 E2B.
-// Outputs 280 soft tokens (768-dim) that we mean-pool into an embedding.
+// Gemma 4 Vision Encoder — WORKING integration (2026-07-15).
+//
+// Why the first attempt failed, for the record: the ONNX "vision_encoder" does not take an
+// image. Its inputs are pixel_values [1, seq, 768] (flattened 16×16×3 patches, channel-last,
+// rescaled to [0,1]) and pixel_position_ids [1, seq, 2] ((col,row) per patch) — the patchify
+// step lives in transformers' Gemma4Processor, outside the graph. Feeding raw CHW pixels could
+// never work. Additionally the q4 graph uses GatherBlockQuantized with a `bits` attribute,
+// which needs onnxruntime >= 1.27 (the old pin was 1.20.1). The preprocessing is ported in
+// lib/gemma4.mjs and shared with the Node index builder, so browser and index stay aligned.
+//
+// ort.min.js is a UMD/global bundle: it MUST be loaded via a <script> tag (import() runs it as
+// an ES module and never defines the global).
 
 const GEMMA4_BASE = 'https://huggingface.co/onnx-community/gemma-4-E2B-it-ONNX/resolve/main/onnx';
-const GEMMA4_MODEL_URL = `${GEMMA4_BASE}/vision_encoder_q4.onnx`;
-const GEMMA4_DATA_URL = `${GEMMA4_BASE}/vision_encoder_q4.onnx_data`;
-const INPUT_SIZE = 224;
+const ORT_VERSION = '1.27.0';
 
 let gemma4Session = null;
-let gemma4InputName = null;
-let gemma4OutputName = null;
+let gemma4Lib = null;
 
 async function loadGemma4(progressCb) {
   if (gemma4Session) return gemma4Session;
 
-  // Load ONNX Runtime Web. ort.min.js is a UMD/global bundle, so it MUST be loaded via a
-  // <script> tag (which sets window.ort). A dynamic import() runs it as an ES module and never
-  // defines the global — that's the "ort is not defined" error.
   if (typeof ort === 'undefined') {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js';
+      s.src = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/ort.min.js`;
       s.onload = resolve;
       s.onerror = () => reject(new Error('Failed to load ONNX Runtime Web from CDN.'));
       document.head.appendChild(s);
     });
   }
   if (typeof ort === 'undefined') throw new Error('ONNX Runtime (ort) global not available after load.');
-  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+  ort.env.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`;
 
-  // Fetch model graph (small, ~196KB)
-  progressCb?.({ status: 'download', file: 'vision_encoder_q4.onnx', loaded: 0, total: 196608 });
-  const modelResp = await fetch(GEMMA4_MODEL_URL);
+  gemma4Lib = await import('./lib/gemma4.mjs');
+
+  progressCb?.({ status: 'download', file: 'vision_encoder_q4.onnx', loaded: 0, total: 200072 });
+  const modelResp = await fetch(`${GEMMA4_BASE}/vision_encoder_q4.onnx`);
   if (!modelResp.ok) throw new Error(`Failed to fetch model: HTTP ${modelResp.status}`);
   const modelBuf = await modelResp.arrayBuffer();
   progressCb?.({ status: 'done', file: 'vision_encoder_q4.onnx' });
 
-  // Fetch model weights (large, ~107MB) with progress
-  progressCb?.({ status: 'download', file: 'vision_encoder_q4.onnx_data', loaded: 0, total: 107000000 });
-  const dataBuf = await fetchWithProgress(GEMMA4_DATA_URL, (loaded, total) => {
+  progressCb?.({ status: 'download', file: 'vision_encoder_q4.onnx_data', loaded: 0, total: 112105664 });
+  const dataBuf = await fetchWithProgress(`${GEMMA4_BASE}/vision_encoder_q4.onnx_data`, (loaded, total) => {
     progressCb?.({ status: 'progress', file: 'vision_encoder_q4.onnx_data', loaded, total });
   });
   progressCb?.({ status: 'done', file: 'vision_encoder_q4.onnx_data' });
 
-  // Create session — pass external data as Uint8Array
-  // The model graph references config.json internally; intercept that fetch
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async function (url, opts) {
-    // ORT tries to fetch config.json from a wrong path — return empty JSON
-    if (typeof url === 'string' && url.includes('config.json')) {
-      return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
-    }
-    return originalFetch.call(this, url, opts);
-  };
-
   try {
     gemma4Session = await ort.InferenceSession.create(modelBuf, {
       executionProviders: ['wasm'],
-      graphOptimizationLevel: 'all',
-      externalData: [{
-        path: 'vision_encoder_q4.onnx_data',
-        data: new Uint8Array(dataBuf),
-      }],
+      externalData: [{ path: 'vision_encoder_q4.onnx_data', data: new Uint8Array(dataBuf) }],
     });
   } catch (e) {
-    // ORT-Web throws a raw number (a WASM exception pointer) on abort — turn it into something
-    // a human (on mobile, with no console) can read.
     const code = (e && e.message) ? e.message : String(e);
-    throw new Error(
-      `Gemma 4 failed to initialize in ONNX Runtime (WASM error ${code}). The standalone q4 ` +
-        `vision submodel likely uses an op the WASM build doesn't support, or its external-data ` +
-        `reference doesn't match. Gemma 4 is experimental here; CLIP / SigLIP / DINOv2 work.`,
-    );
-  } finally {
-    globalThis.fetch = originalFetch;
+    throw new Error(`Gemma 4 failed to initialize in ONNX Runtime ${ORT_VERSION} (${code}).`);
   }
-
-  gemma4InputName = gemma4Session.inputNames[0];
-  gemma4OutputName = gemma4Session.outputNames[0];
-  console.log('[gemma4] session ready. inputs:', gemma4Session.inputNames,
-    'outputs:', gemma4Session.outputNames);
+  console.log('[gemma4] session ready. inputs:', gemma4Session.inputNames, 'outputs:', gemma4Session.outputNames);
   return gemma4Session;
+}
+
+// Embed a canvas: pixels at the canvas's own resolution; the shared lib resizes to the model's
+// patch budget (dims divisible by 48), patchifies, and mean-pools the 1536-d soft tokens —
+// exactly like the offline index builder.
+async function embedGemma4(canvas) {
+  await loadGemma4();
+  const ctx = canvas.getContext('2d');
+  const rgba = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  return gemma4Lib.gemma4Embed(gemma4Session, ort, rgba);
 }
 
 async function fetchWithProgress(url, onProgress) {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const total = parseInt(resp.headers.get('content-length') || '110000000');
+  const total = parseInt(resp.headers.get('content-length') || '112105664');
   const reader = resp.body.getReader();
   const chunks = [];
   let loaded = 0;
@@ -104,58 +90,6 @@ async function fetchWithProgress(url, onProgress) {
     offset += chunk.length;
   }
   return result.buffer;
-}
-
-function preprocessForGemma4(canvas) {
-  const ctx = canvas.getContext('2d');
-  const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
-  const pixels = imageData.data;
-
-  const tensor = new Float32Array(3 * INPUT_SIZE * INPUT_SIZE);
-  const planeSize = INPUT_SIZE * INPUT_SIZE;
-  for (let i = 0; i < planeSize; i++) {
-    tensor[i] = (pixels[i * 4] / 255 - 0.5) / 0.5;
-    tensor[planeSize + i] = (pixels[i * 4 + 1] / 255 - 0.5) / 0.5;
-    tensor[planeSize * 2 + i] = (pixels[i * 4 + 2] / 255 - 0.5) / 0.5;
-  }
-  return tensor;
-}
-
-async function embedGemma4(canvas) {
-  await loadGemma4();
-  const tensorData = preprocessForGemma4(canvas);
-  const inputTensor = new ort.Tensor('float32', tensorData, [1, 3, INPUT_SIZE, INPUT_SIZE]);
-  const feeds = {};
-  feeds[gemma4InputName] = inputTensor;
-  let results;
-  try {
-    results = await gemma4Session.run(feeds);
-  } catch (e) {
-    throw new Error(
-      `Gemma 4 inference failed (input "${gemma4InputName}" shape [1,3,${INPUT_SIZE},${INPUT_SIZE}]): ` +
-        (e && e.message ? e.message : String(e)),
-    );
-  }
-  const output = results[gemma4OutputName];
-  if (!output || !output.dims) {
-    throw new Error(
-      `Gemma 4 produced no usable output for "${gemma4OutputName}". Got keys: ${Object.keys(results).join(', ') || '(none)'}`,
-    );
-  }
-
-  const dims = output.dims;
-  const data = output.data;
-  const numTokens = dims[dims.length - 2] || 280;
-  const embedDim = dims[dims.length - 1] || 768;
-
-  const pooled = new Float64Array(embedDim);
-  for (let t = 0; t < numTokens; t++) {
-    for (let d = 0; d < embedDim; d++) {
-      pooled[d] += data[t * embedDim + d];
-    }
-  }
-  for (let d = 0; d < embedDim; d++) pooled[d] /= numTokens;
-  return pooled;
 }
 
 window.__gemma4 = { loadGemma4, embedGemma4, isLoaded: () => !!gemma4Session };

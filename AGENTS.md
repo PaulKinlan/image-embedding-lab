@@ -54,7 +54,19 @@ These have all been violated once. Don't repeat them.
 7. **Validate in Node first, then verify the SAME numbers in the browser before pushing.** A
    browser/Node discrepancy is a pipeline artifact until proven otherwise — every "surprising
    model behavior" so far was us, not the model. Batch results (`results-*.json`) are expensive;
-   don't regenerate them unless measurement code changed.
+   don't regenerate them unless measurement code changed. Single-backend verification is
+   incomplete: WASM passing says nothing about WebGPU (q8 CLIP/SigLIP produce garbage there);
+   the search page self-calibrates on the user's actual backend for this reason.
+
+8. **Read a model's actual input contract before blaming the runtime.** Gemma 4's ONNX
+   "vision_encoder" takes PRE-PATCHIFIED input (`pixel_values [1, seq, 768]` +
+   `pixel_position_ids [1, seq, 2]`) — the patchify lives in transformers'
+   `Gemma4Processor`, outside the graph. A year of "Gemma 4 doesn't work" was one
+   `session.inputNames` inspection away from being solved (plus onnxruntime >= 1.27 for
+   GatherBlockQuantized-with-`bits`; and onnxruntime-node 1.27 cannot share a process with
+   transformers.js's nested 1.21 — wrong native .so gets dlopened, hence the standalone
+   `build-search-index-gemma4.mjs`). Ported preprocessing lives in `lib/gemma4.mjs`, shared
+   browser/Node.
 
 ## Caching & resilience constraints
 
