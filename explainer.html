@@ -148,7 +148,7 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
 
 <section>
 <h2>4 · The transformer mixes; pooling summarizes</h2>
-<p>Attention layers let every token look at every other token; after a dozen layers, each token has absorbed context from the whole image. But you still have 49–577 token vectors and you want <b>one</b> embedding. That last step, <b>pooling</b>, quietly decides what survives:</p>
+<p>Attention layers let every token look at every other token; after a dozen layers, each token has absorbed context from the whole image. (If you've heard that attention "only looks backwards": that's <em>causal</em> attention, the variant GPT-style <em>decoders</em> use because they generate text left-to-right and must not peek at words they haven't produced yet. An image has no reading order — all patches exist at once — so vision <em>encoders</em> use full bidirectional attention, and patch (0,0) freely attends to patch (6,6). Florence-2 contains both: a bidirectional vision encoder and a causal language decoder.) But you still have 49–577 token vectors and you want <b>one</b> embedding. That last step, <b>pooling</b>, quietly decides what survives:</p>
 <p><b>Mean-pooling</b> averages all tokens. Averaging is <em>order-blind</em>: rearrange the tokens and the mean is identical. <b>CLS pooling</b> instead uses one special summary token that <em>attends</em> to the others, and attention weights can depend on position, so arrangement leaks into the summary.</p>
 <div class="widget">
   <div class="hint">Same nine tokens, two arrangements. Pool them</div>
