@@ -6,8 +6,19 @@ moves. Everything runs in your browser via Transformers.js (and there's a Node C
 runs) — no server, no API key.
 
 Live: https://paulkinlan.github.io/image-embedding-lab/ · [How it works (explainer)](explainer.html) ·
-[Vector visualizer](vector-viz.html) · [VLM playground](vlm.html) · [Batch report](report.html) ·
-[Tiling report](tiling-report.html) · [Layout report](layout-report.html) · [Findings](FINDINGS.md)
+[Reverse search](search.html) · [Vector visualizer](vector-viz.html) · [VLM playground](vlm.html) ·
+[Batch report](report.html) · [Tiling report](tiling-report.html) ·
+[Layout report](layout-report.html) · [Findings](FINDINGS.md)
+
+The **Reverse image search demo** (`search.html`) puts the whole thesis to work: an 800-image
+corpus embedded offline with CLIP, SigLIP and DINOv2 (`scripts/build-search-index.mjs`), packed
+into one SQLite file that the page loads with sql.js and queries entirely client-side. Pick any
+query image, crop and rotate it with live re-search, and compare the three models' rankings
+side by side: every hit shows its cosine, hits above each model's same-image threshold (from
+the layout experiments) are marked, and the query's source image is outlined so you can watch
+it fall down the rankings as the transform deepens. Search is exact (one dot product per corpus
+vector, sub-millisecond at this scale); the page explains where approximate indexes like HNSW
+actually earn their keep.
 
 **New to embeddings? Start with the [interactive explainer](explainer.html)** — it builds the
 whole mental model from scratch (vectors and cosine, patches and tokens, position embeddings,

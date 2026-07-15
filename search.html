@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Reverse image search over an 800-image corpus, running entirely in your browser: a SQLite index of CLIP, SigLIP and DINOv2 embeddings, side-by-side rankings per model, crop and rotate the query and watch the scores.">
+<title>Reverse image search, three embedding models side by side</title>
+<style>
+:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--accent-ink:#fff;--good:#1a8a3a;--bad:#c0392b;
+  --s-clip:#2a78d6;--s-siglip:#1baf7a;--s-dinov2:#eda100}
+@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--accent-ink:#0c1524;--good:#57c97a;--bad:#e06c75;
+  --s-clip:#3987e5;--s-siglip:#199e70;--s-dinov2:#c98500}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:1100px;margin:0 auto}
+h1{font-family:Georgia,serif;font-size:1.8rem;font-weight:normal;margin-bottom:.3rem}
+h2{font-family:Georgia,serif;font-size:1.15rem;font-weight:normal;margin:1.5rem 0 .5rem;border-bottom:1px solid var(--border);padding-bottom:.55rem}
+.sub{color:var(--muted);font-size:.85rem;margin-bottom:1.2rem}
+a{color:var(--accent)}
+.links{display:flex;gap:.5rem;flex-wrap:wrap;margin:-.4rem 0 1.4rem}
+.links a{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;text-decoration:none;padding:.3rem .7rem;border:1px solid var(--border);border-radius:999px;background:var(--bg-secondary);color:var(--color)}
+.links a:hover{border-color:var(--accent);color:var(--accent)}
+.panel{border:1px solid var(--border);border-radius:.6rem;background:var(--bg-secondary);padding:1rem;margin:1rem 0}
+.qrow{display:flex;gap:1.2rem;flex-wrap:wrap}
+.qrow>div{min-width:250px}
+.dropzone{border:2px dashed var(--border);border-radius:.5rem;padding:1rem .8rem;text-align:center;color:var(--muted);cursor:pointer;font-size:.8rem;background:var(--background)}
+.dropzone:hover,.dropzone.dragover{border-color:var(--accent);color:var(--accent)}
+.dropzone input{display:none}
+.quickpick{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.6rem;max-width:420px}
+.quickpick img{width:44px;height:44px;object-fit:cover;border-radius:.3rem;border:1px solid var(--border);cursor:pointer;background:#fff}
+.quickpick img:hover{border-color:var(--accent)}
+#preview{max-width:224px;border-radius:.4rem;border:1px solid var(--border);background:#fff;display:block}
+.controls{display:flex;gap:1rem;flex-wrap:wrap;margin:.7rem 0;align-items:center}
+.controls label{font-size:.75rem;color:var(--muted);display:flex;gap:.45rem;align-items:center}
+.controls input[type=range]{width:130px;accent-color:var(--accent)}
+.controls .val{font-variant-numeric:tabular-nums;min-width:2.6rem;display:inline-block}
+button{font:inherit;padding:.5rem 1.1rem;border:1px solid var(--border);border-radius:.35rem;background:var(--accent);color:var(--accent-ink);cursor:pointer;font-size:.85rem}
+button:disabled{opacity:.4;cursor:not-allowed}
+.modelpick{font-size:.8rem;display:flex;gap:1rem;flex-wrap:wrap;margin:.4rem 0}
+.modelpick label{display:inline-flex;gap:.35rem;align-items:center}
+.modelpick i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.status{font-size:.82rem;color:var(--muted);margin:.8rem 0;padding:.5rem .8rem;background:var(--bg-secondary);border-radius:.4rem;display:none}
+.status.show{display:block}
+.status.error{color:var(--bad)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin:1rem 0}
+.col h3{font-size:.9rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.45rem}
+.col h3 i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.col .t{font-size:.7rem;color:var(--muted);font-weight:normal}
+.hit{display:grid;grid-template-columns:72px 1fr;gap:.6rem;align-items:center;padding:.35rem;border:1px solid var(--border);border-radius:.45rem;margin-bottom:.45rem;background:var(--bg-secondary)}
+.hit img{width:72px;height:72px;object-fit:cover;border-radius:.35rem;background:#fff}
+.hit .score{font-variant-numeric:tabular-nums;font-size:.92rem;font-weight:600}
+.hit .rank{font-size:.7rem;color:var(--muted)}
+.hit.above{border-color:var(--good)}
+.hit.above .score{color:var(--good)}
+.hit .thr{font-size:.66rem;color:var(--good)}
+.note{font-size:.75rem;color:var(--muted);margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+<h1>Reverse image search</h1>
+<p class="sub">An 800-image corpus, indexed offline with three encoders and packed into one SQLite file that this page loads and queries entirely in your browser. Pick a query image, optionally crop and rotate it, and search all three models at once: each column is ranked by that model's own cosine, every hit shows its score, and hits above the model's <a href="explainer.html">same-image threshold</a> are marked. The point is to watch the columns disagree.</p>
+<div class="links"><a href="index.html">← Embedding lab</a><a href="explainer.html">How it works</a><a href="vector-viz.html">Vector visualizer</a><a href="layout-report.html">Layout report</a><a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">↗ GitHub</a></div>
+
+<div class="panel">
+  <div class="qrow">
+    <div style="flex:1">
+      <div class="dropzone" id="dropzone"><p>Drop a query image, or click to choose</p><input type="file" id="file-input" accept="image/*"></div>
+      <div class="quickpick" id="quickpick" aria-label="pick a corpus image as the query"></div>
+    </div>
+    <div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:.3rem">query as the models see it (224, mid-gray letterbox)</div>
+      <canvas id="preview" width="224" height="224"></canvas>
+      <div class="controls">
+        <label>rotate <input type="range" id="rot" min="0" max="359" value="0"><span class="val" id="rot-val">0°</span></label>
+      </div>
+      <div class="controls">
+        <label>crop <input type="range" id="crop" min="0" max="40" value="0"><span class="val" id="crop-val">0%</span></label>
+      </div>
+    </div>
+  </div>
+  <div class="modelpick" id="modelpick"></div>
+  <div class="controls">
+    <button id="search-btn" disabled>Search all selected models</button>
+    <label style="font-size:.78rem"><input type="checkbox" id="live" checked> live: re-search while dragging crop/rotate</label>
+    <span style="font-size:.75rem;color:var(--muted)" id="db-status">loading index…</span>
+  </div>
+  <div class="status" id="status"></div>
+</div>
+
+<div class="cols" id="cols"></div>
+
+<h2>Method notes</h2>
+<p style="font-size:.88rem">Why doesn't an untouched corpus image score 1.000 against itself? Because the index was built offline (node-canvas) and your query is rendered by your browser, and the two runtimes downscale differently — the same pixel-pipeline lesson from <a href="https://github.com/PaulKinlan/image-embedding-lab/blob/master/AGENTS.md">AGENTS.md</a> rule 2, visible in production. Identity queries land around 0.85–0.95; that's the realistic case anyway, since a real reverse-search query never bit-matches the indexed render.</p>
+<p style="font-size:.88rem">Search here is <b>exact</b>: the query embedding is dot-multiplied against all 800 unit vectors per model, which takes under a millisecond in JavaScript. Approximate indexes (HNSW, IVF) exist for when exact search stops being instant, roughly beyond a few million vectors; at this scale they would add complexity and recall loss for nothing. The index is an ordinary SQLite file (one table per model, Float32 BLOBs) read with sql.js; the same file could be served to sqlite-vec or any vector store later. Query preprocessing is identical to the <a href="index.html">lab</a> pipeline (shared <code>lib/</code> render), so scores here are comparable with every number on this site. Per our <a href="explainer.html">threshold experiments</a>, expect SigLIP to be the most reliable column under rotation and crop, CLIP to trail it, and DINOv2 to fall apart under rotation while matching well otherwise.</p>
+<p class="note">Corpus images via <a href="https://picsum.photos" target="_blank">picsum.photos</a> (Unsplash-sourced). Index built by <code>scripts/build-search-index.mjs</code>. Models run locally via Transformers.js and are cached by the service worker; the SQLite index is ~4 MB.</p>
+
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.js"></script>
+<script type="module">
+import { pipeline, env, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
+import { renderTransform as coreRender, poolEmbedding, SIZE } from './lib/experiment.mjs';
+const initSqlJs = window.initSqlJs;   // sql.js is UMD/global, not an ES module
+
+env.allowLocalModels = false;
+const $ = (id) => document.getElementById(id);
+const log = (...a) => console.log('[search]', ...a);
+
+const MODELS = {
+  clip: { id: 'Xenova/clip-vit-base-patch32', label: 'CLIP B/32', v: '--s-clip', note: '~100MB' },
+  siglip: { id: 'Xenova/siglip-base-patch16-224', label: 'SigLIP B/16', v: '--s-siglip', note: '~370MB' },
+  dinov2: { id: 'Xenova/dinov2-small', label: 'DINOv2-S', v: '--s-dinov2', note: '~85MB' },
+};
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// --- state ---
+let db = null;
+const matrices = {};   // model -> { ids: Int32Array, files: string[], vecs: Float32Array (n*dim), dim }
+const extractors = {};
+let queryImage = null, queryLabel = null;
+let ceilings = {};
+
+function setStatus(msg, cls = '') {
+  const s = $('status');
+  s.textContent = msg;
+  s.className = 'status' + (msg ? ' show ' + cls : '');
+  if (msg) log(msg);
+}
+
+// --- model picker ---
+$('modelpick').innerHTML = Object.entries(MODELS).map(([k, m]) =>
+  `<label><input type="checkbox" data-model="${k}" ${k === 'clip' ? 'checked' : ''}><i style="background:${css(m.v)}"></i>${m.label} <span style="color:var(--muted)">(${m.note})</span></label>`).join('');
+
+// --- index loading ---
+(async () => {
+  try {
+    const [SQL, buf, thr] = await Promise.all([
+      initSqlJs({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/${f}` }),
+      fetch('search-index.sqlite').then((r) => { if (!r.ok) throw new Error(`index fetch ${r.status}`); return r.arrayBuffer(); }),
+      fetch('results-same-image.json').then((r) => r.json()).catch(() => null),
+    ]);
+    db = new SQL.Database(new Uint8Array(buf));
+    if (thr) for (const [k, v] of Object.entries(thr.results)) ceilings[k] = v.ceiling;
+    const n = db.exec('SELECT COUNT(*) FROM images')[0].values[0][0];
+    $('db-status').textContent = `index loaded: ${n} images × ${Object.keys(MODELS).length} models (${(buf.byteLength / 1048576).toFixed(1)} MB)`;
+    $('search-btn').disabled = false;
+    // quickpick: a spread of corpus images
+    const rows = db.exec('SELECT file FROM images WHERE id % 67 = 1 ORDER BY id LIMIT 12')[0].values;
+    $('quickpick').innerHTML = rows.map(([f]) => `<img src="search-images/${f}" data-file="${f}" loading="lazy" alt="corpus image ${f}">`).join('');
+    $('quickpick').addEventListener('click', (e) => {
+      const f = e.target?.dataset?.file;
+      if (f) loadQuery('search-images/' + f, f);
+    });
+    log('db ready');
+  } catch (e) {
+    $('db-status').textContent = 'index failed to load: ' + e.message;
+    console.error(e);
+  }
+})();
+
+function getMatrix(model) {
+  if (matrices[model]) return matrices[model];
+  const res = db.exec(`SELECT i.id, i.file, e.v FROM images i JOIN emb_${model} e ON e.image_id = i.id ORDER BY i.id`)[0];
+  const nRows = res.values.length;
+  const dim = new Float32Array(res.values[0][2].buffer.slice(res.values[0][2].byteOffset, res.values[0][2].byteOffset + res.values[0][2].byteLength)).length;
+  const vecs = new Float32Array(nRows * dim);
+  const files = new Array(nRows);
+  res.values.forEach(([id, file, blob], r) => {
+    files[r] = file;
+    vecs.set(new Float32Array(blob.buffer, blob.byteOffset, dim), r * dim);
+  });
+  matrices[model] = { files, vecs, dim, n: nRows };
+  log(`matrix ${model}: ${nRows}×${dim}`);
+  return matrices[model];
+}
+
+// --- query handling ---
+function drawPreview() {
+  if (!queryImage) return;
+  const p = { rotation: parseInt($('rot').value) || 0, crop: parseInt($('crop').value) / 100 };
+  coreRender($('preview').getContext('2d'), queryImage, p, 224);
+  $('rot-val').textContent = $('rot').value + '°';
+  $('crop-val').textContent = $('crop').value + '%';
+}
+function loadQuery(src, label) {
+  const img = new Image();
+  img.onload = () => { queryImage = img; queryLabel = label; drawPreview(); setStatus(`query: ${label}. Adjust crop/rotate, then search.`); };
+  img.src = src;
+}
+// live re-search while dragging: debounced, drops stale runs
+let debounceTimer = null, searchGen = 0, hasSearched = false;
+function onTransformInput() {
+  drawPreview();
+  if (!$('live').checked || !hasSearched || !queryImage) return;
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => runSearch(), 180);
+}
+$('rot').addEventListener('input', onTransformInput);
+$('crop').addEventListener('input', onTransformInput);
+const dz = $('dropzone');
+dz.addEventListener('click', () => $('file-input').click());
+dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', (e) => {
+  e.preventDefault(); dz.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f?.type.startsWith('image/')) loadQuery(URL.createObjectURL(f), f.name);
+});
+$('file-input').addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (f) loadQuery(URL.createObjectURL(f), f.name);
+});
+
+// --- embedding + search ---
+async function ensureExtractor(model) {
+  if (extractors[model]) return extractors[model];
+  setStatus(`loading ${MODELS[model].label} (${MODELS[model].note}, cached after first time)…`);
+  let backend = 'wasm';
+  try { if (navigator.gpu && await navigator.gpu.requestAdapter()) backend = 'webgpu'; } catch { /* wasm */ }
+  const opts = backend === 'webgpu' ? { device: 'webgpu' } : {};
+  extractors[model] = await pipeline('image-feature-extraction', MODELS[model].id, opts);
+  log(`${model} loaded on ${backend}`);
+  return extractors[model];
+}
+
+async function embedQuery(model) {
+  const ex = await ensureExtractor(model);
+  const c = document.createElement('canvas');
+  c.width = SIZE; c.height = SIZE;
+  const p = { rotation: parseInt($('rot').value) || 0, crop: parseInt($('crop').value) / 100 };
+  coreRender(c.getContext('2d'), queryImage, p, SIZE);
+  const { data, width, height } = c.getContext('2d').getImageData(0, 0, SIZE, SIZE);
+  const out = await ex(new RawImage(data, width, height, 4));
+  return Float32Array.from(poolEmbedding(out.data, out.dims));
+}
+
+function topK(model, q, k = 12) {
+  const { files, vecs, dim, n } = getMatrix(model);
+  const scores = new Float32Array(n);
+  for (let r = 0; r < n; r++) {
+    let dot = 0;
+    const off = r * dim;
+    for (let d = 0; d < dim; d++) dot += q[d] * vecs[off + d];
+    scores[r] = dot;
+  }
+  return [...scores.keys()].sort((a, b) => scores[b] - scores[a]).slice(0, k)
+    .map((r) => ({ file: files[r], score: scores[r] }));
+}
+
+function colFor(model) {
+  let col = document.querySelector(`.col[data-model="${model}"]`);
+  if (!col) {
+    col = document.createElement('div');
+    col.className = 'col';
+    col.dataset.model = model;
+    col.innerHTML = `<h3><i style="background:${css(MODELS[model].v)}"></i>${MODELS[model].label} <span class="t"></span></h3><div class="hits"></div>`;
+    $('cols').appendChild(col);
+  }
+  return col;
+}
+
+async function runSearch() {
+  if (!queryImage || !db) return;
+  const selected = [...document.querySelectorAll('#modelpick input:checked')].map((c) => c.dataset.model);
+  if (!selected.length) { setStatus('Select at least one model.', 'error'); return; }
+  const gen = ++searchGen;
+  // drop columns for deselected models
+  document.querySelectorAll('.col').forEach((c) => { if (!selected.includes(c.dataset.model)) c.remove(); });
+  try {
+    for (const model of selected) {
+      const col = colFor(model);
+      const t0 = performance.now();
+      const q = await embedQuery(model);
+      if (gen !== searchGen) return;   // a newer drag superseded this run
+      const tEmbed = performance.now() - t0;
+      const t1 = performance.now();
+      const hits = topK(model, q);
+      const tSearch = performance.now() - t1;
+      const ceiling = ceilings[model];
+      col.querySelector('.t').textContent = `embed ${Math.round(tEmbed)}ms · search ${tSearch.toFixed(1)}ms`;
+      const isSource = (f) => queryLabel === f;
+      col.querySelector('.hits').innerHTML = hits.map((h, i) => {
+        const above = ceiling != null && h.score > ceiling;
+        return `<div class="hit${above ? ' above' : ''}${isSource(h.file) ? '" style="outline:2px solid var(--accent)"' : '"'}>` +
+          `<img src="search-images/${h.file}" loading="lazy" alt="result ${i + 1}">` +
+          `<div><span class="score">${h.score.toFixed(3)}</span> <span class="rank">#${i + 1}</span>` +
+          (isSource(h.file) ? `<div class="thr" style="color:var(--accent)">query source image</div>` : '') +
+          (above ? `<div class="thr">above same-image threshold (${ceiling.toFixed(2)})</div>` : '') + `</div></div>`;
+      }).join('');
+      setStatus('');
+    }
+    hasSearched = true;
+  } catch (e) {
+    setStatus(e.message || String(e), 'error');
+    console.error(e);
+  }
+}
+
+$('search-btn').addEventListener('click', async () => {
+  $('search-btn').disabled = true;
+  await runSearch();
+  $('search-btn').disabled = false;
+});
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if (navigator.storage?.persist) navigator.storage.persist().then((g) => log('persist:', g));
+log('ready');
+</script>
+</body>
+</html>

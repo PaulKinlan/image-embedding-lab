@@ -14,5 +14,8 @@
     "@huggingface/transformers": "^3.0.0",
     "canvas": "^3.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "sql.js": "^1.14.1"
+  }
 }
