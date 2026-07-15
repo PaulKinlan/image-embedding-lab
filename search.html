@@ -83,6 +83,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
   <div class="controls">
     <button id="search-btn" disabled>Search all selected models</button>
     <label style="font-size:.78rem"><input type="checkbox" id="live" checked> live: re-search while dragging crop/rotate</label>
+    <label style="font-size:.78rem" title="render at native resolution then downscale with the same pure-JS resampler the index builder used; the naive path uses the browser's canvas downscaler and shows the runtime-pixel gap"><input type="checkbox" id="hq" checked> shared-pipeline scaling</label>
     <span style="font-size:.75rem;color:var(--muted)" id="db-status">loading index…</span>
   </div>
   <div class="status" id="status"></div>
@@ -91,14 +92,14 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <div class="cols" id="cols"></div>
 
 <h2>Method notes</h2>
-<p style="font-size:.88rem">Why doesn't an untouched corpus image score 1.000 against itself? Because the index was built offline (node-canvas) and your query is rendered by your browser, and the two runtimes downscale differently — the same pixel-pipeline lesson from <a href="https://github.com/PaulKinlan/image-embedding-lab/blob/master/AGENTS.md">AGENTS.md</a> rule 2, visible in production. Identity queries land around 0.85–0.95; that's the realistic case anyway, since a real reverse-search query never bit-matches the indexed render.</p>
+<p style="font-size:.88rem">Getting an untouched corpus image to score ≈1.0 against itself took closing <b>two</b> runtime gaps, and both are visible here. First, <b>pixels</b>: canvas downscaling is runtime-specific (Skia in your browser, cairo in the offline indexer), so both sides render at native resolution and downscale with the same pure-JS resampler (<code>fitToSquare</code> in the shared <code>lib/</code>); the <b>shared-pipeline scaling</b> toggle switches back to the browser's downscaler so the difference stays demonstrable. Second, <b>precision</b>: the browser's WASM backend runs q8-quantized weights while Node defaults to fp32 — the same pixels through different weights cost ~0.14 cosine — so the index is built q8 and the page forces q8 on every backend. Chapter and verse in <a href="https://github.com/PaulKinlan/image-embedding-lab/blob/master/AGENTS.md">AGENTS.md</a> rule 4: same code, same version, same pixels, same precision.</p>
 <p style="font-size:.88rem">Search here is <b>exact</b>: the query embedding is dot-multiplied against all 800 unit vectors per model, which takes under a millisecond in JavaScript. Approximate indexes (HNSW, IVF) exist for when exact search stops being instant, roughly beyond a few million vectors; at this scale they would add complexity and recall loss for nothing. The index is an ordinary SQLite file (one table per model, Float32 BLOBs) read with sql.js; the same file could be served to sqlite-vec or any vector store later. Query preprocessing is identical to the <a href="index.html">lab</a> pipeline (shared <code>lib/</code> render), so scores here are comparable with every number on this site. Per our <a href="explainer.html">threshold experiments</a>, expect SigLIP to be the most reliable column under rotation and crop, CLIP to trail it, and DINOv2 to fall apart under rotation while matching well otherwise.</p>
 <p class="note">Corpus images via <a href="https://picsum.photos" target="_blank">picsum.photos</a> (Unsplash-sourced). Index built by <code>scripts/build-search-index.mjs</code>. Models run locally via Transformers.js and are cached by the service worker; the SQLite index is ~4 MB.</p>
 
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.js"></script>
 <script type="module">
 import { pipeline, env, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
-import { renderTransform as coreRender, poolEmbedding, SIZE } from './lib/experiment.mjs';
+import { renderTransform as coreRender, poolEmbedding, fitToSquare, SIZE } from './lib/experiment.mjs';
 const initSqlJs = window.initSqlJs;   // sql.js is UMD/global, not an ES module
 
 env.allowLocalModels = false;
@@ -174,10 +175,33 @@ function getMatrix(model) {
 }
 
 // --- query handling ---
+// Shared-pipeline scaling: render the transform at NATIVE resolution (canvas scale factor 1,
+// so the browser's runtime-specific resampler never runs at a big factor), then downscale to
+// 224 with the SAME pure-JS fitToSquare the index builder used. Identity queries on corpus
+// images reproduce the indexed pixels almost exactly. The naive toggle renders straight to
+// 224 with canvas drawImage, which shows the runtime-pixel gap.
+function queryParams() {
+  return { rotation: parseInt($('rot').value) || 0, crop: parseInt($('crop').value) / 100 };
+}
+function renderQuery224() {
+  const p = queryParams();
+  if (!$('hq').checked) {
+    const c = document.createElement('canvas');
+    c.width = SIZE; c.height = SIZE;
+    coreRender(c.getContext('2d'), queryImage, p, SIZE);
+    return c.getContext('2d').getImageData(0, 0, SIZE, SIZE);
+  }
+  const iw = queryImage.naturalWidth || queryImage.width, ih = queryImage.naturalHeight || queryImage.height;
+  const N = Math.max(16, Math.min(896, Math.round(Math.max(iw, ih) * (1 - 2 * p.crop))));
+  const c = document.createElement('canvas');
+  c.width = N; c.height = N;
+  coreRender(c.getContext('2d'), queryImage, p, N);
+  const sq = fitToSquare(c.getContext('2d').getImageData(0, 0, N, N), SIZE);
+  return new ImageData(sq.data, sq.width, sq.height);
+}
 function drawPreview() {
   if (!queryImage) return;
-  const p = { rotation: parseInt($('rot').value) || 0, crop: parseInt($('crop').value) / 100 };
-  coreRender($('preview').getContext('2d'), queryImage, p, 224);
+  $('preview').getContext('2d').putImageData(renderQuery224(), 0, 0);
   $('rot-val').textContent = $('rot').value + '°';
   $('crop-val').textContent = $('crop').value + '%';
 }
@@ -196,6 +220,7 @@ function onTransformInput() {
 }
 $('rot').addEventListener('input', onTransformInput);
 $('crop').addEventListener('input', onTransformInput);
+$('hq').addEventListener('input', () => { drawPreview(); if (hasSearched) runSearch(); });
 const dz = $('dropzone');
 dz.addEventListener('click', () => $('file-input').click());
 dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
@@ -216,7 +241,9 @@ async function ensureExtractor(model) {
   setStatus(`loading ${MODELS[model].label} (${MODELS[model].note}, cached after first time)…`);
   let backend = 'wasm';
   try { if (navigator.gpu && await navigator.gpu.requestAdapter()) backend = 'webgpu'; } catch { /* wasm */ }
-  const opts = backend === 'webgpu' ? { device: 'webgpu' } : {};
+  // dtype q8 on EVERY backend: the index was built with q8 weights, and WebGPU would default
+  // to fp32 — different precision than the index costs ~0.14 cosine on identical pixels.
+  const opts = backend === 'webgpu' ? { device: 'webgpu', dtype: 'q8' } : { dtype: 'q8' };
   extractors[model] = await pipeline('image-feature-extraction', MODELS[model].id, opts);
   log(`${model} loaded on ${backend}`);
   return extractors[model];
@@ -224,12 +251,8 @@ async function ensureExtractor(model) {
 
 async function embedQuery(model) {
   const ex = await ensureExtractor(model);
-  const c = document.createElement('canvas');
-  c.width = SIZE; c.height = SIZE;
-  const p = { rotation: parseInt($('rot').value) || 0, crop: parseInt($('crop').value) / 100 };
-  coreRender(c.getContext('2d'), queryImage, p, SIZE);
-  const { data, width, height } = c.getContext('2d').getImageData(0, 0, SIZE, SIZE);
-  const out = await ex(new RawImage(data, width, height, 4));
+  const sq = renderQuery224();
+  const out = await ex(new RawImage(sq.data, sq.width, sq.height, 4));
   return Float32Array.from(poolEmbedding(out.data, out.dims));
 }
 

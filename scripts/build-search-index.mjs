@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import initSqlJs from "sql.js";
 import { createCanvas, loadImage } from "canvas";
-import { renderTransform, poolEmbedding } from "../lib/experiment.mjs";
+import { poolEmbedding, fitToSquare } from "../lib/experiment.mjs";
 
 const MODELS = {
   clip: { id: "Xenova/clip-vit-base-patch32", size: 224, dim: 512 },
@@ -43,14 +43,20 @@ for (const [m, cfg] of Object.entries(MODELS)) {
   )[0];
   if (!missing) { console.log(`${m}: complete`); continue; }
   console.log(`${m}: embedding ${missing.values.length} images`);
-  const extractor = await T.pipeline("image-feature-extraction", cfg.id);
+  // dtype q8: the browser's WASM backend loads the quantized ONNX by default, and Node's
+  // default is fp32 — same pixels through different weights costs ~0.14 cosine. The index must
+  // use the SAME precision the querying page will.
+  const extractor = await T.pipeline("image-feature-extraction", cfg.id, { dtype: "q8" });
   let n = 0;
   for (const [id, file] of missing.values) {
+    // Draw 1:1 at native size (no runtime resampling), then downscale with the SHARED pure-JS
+    // resampler — the browser query path runs the identical code, so identity queries match.
     const img = await loadImage(path.join(DIR, file));
-    const c = createCanvas(cfg.size, cfg.size);
-    renderTransform(c.getContext("2d"), img, {}, cfg.size);
-    const { data, width, height } = c.getContext("2d").getImageData(0, 0, cfg.size, cfg.size);
-    const out = await extractor(new T.RawImage(new Uint8ClampedArray(data), width, height, 4));
+    const c = createCanvas(img.width, img.height);
+    c.getContext("2d").drawImage(img, 0, 0);
+    const raw = c.getContext("2d").getImageData(0, 0, img.width, img.height);
+    const sq = fitToSquare(raw, cfg.size);
+    const out = await extractor(new T.RawImage(new Uint8ClampedArray(sq.data), sq.width, sq.height, 4));
     const vec = poolEmbedding(out.data, out.dims);           // unit-normalized Float64
     db.run(`INSERT INTO emb_${m} (image_id, v) VALUES (?, ?)`, [id, new Uint8Array(Float32Array.from(vec).buffer)]);
     if (++n % 50 === 0) {

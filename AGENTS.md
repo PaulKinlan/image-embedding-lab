@@ -28,11 +28,16 @@ These have all been violated once. Don't repeat them.
    the explaining. Raw image↔text cosines sit ~0.2 (CLIP modality gap) — only relative
    comparisons mean anything. (`bb4cb3f`, `4e864c1`)
 
-4. **Browser and CLI must be the same pipeline.** Shared logic lives in `lib/experiment.mjs` /
-   `lib/vector-viz.mjs` — never duplicate it into a page or the CLI; they drift (the JPEG-vs-raw
-   incident). The pages pin `transformers@X` on the CDN and `package.json` resolves a version
-   for Node — keep them THE SAME and bump them together (they silently diverged 3.0.0 vs 3.8.1
-   for months). (`bb4cb3f`, `871c403`)
+4. **Browser and CLI must be the same pipeline — code, version, pixels, AND precision.** Shared
+   logic lives in `lib/experiment.mjs` / `lib/vector-viz.mjs` — never duplicate it into a page
+   or the CLI; they drift (the JPEG-vs-raw incident). The pages pin `transformers@X` on the CDN
+   and `package.json` resolves a version for Node — keep them THE SAME and bump them together
+   (they silently diverged 3.0.0 vs 3.8.1 for months). Canvas resampling is runtime-specific
+   (Skia ≠ cairo): render at native scale and downscale with the shared `fitToSquare`. And
+   **model dtype must match across runtimes**: browser WASM defaults to q8-quantized ONNX
+   while Node defaults to fp32 — cross-precision comparisons cost ~0.14 cosine on identical
+   pixels (the search index is built q8 and the page forces q8 on every backend for this
+   reason). (`bb4cb3f`, `871c403`, search-demo commits)
 
 5. **One variable at a time.** CLIP-B/32 vs SigLIP-B/16 vs DINOv2-S differ in patch size AND
    objective AND resolution — a cross-model comparison never isolates "patch size". Ablate
