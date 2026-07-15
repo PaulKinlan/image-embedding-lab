@@ -3,25 +3,7 @@
 // caption (top-1 among all 15 captions, image↔text cosine)? A transform can move the vector a
 // long way while leaving it closest to the right caption — that's semantic robustness.
 import fs from "node:fs";
-import { CORPUS, embed, cosineSim, fmt } from "./lib-harness.mjs";
-
-const CAPTIONS = {
-  "photo-cafe.jpg": "a cafe interior with coffee cups on a wooden table",
-  "photo-phone-photographer.jpg": "hands taking a photo of a city with a smartphone",
-  "photo-road-tunnel.jpg": "an aerial view of a road tunnel surrounded by trees",
-  "photo-floating-market.jpg": "a floating market with boats full of food",
-  "photo-forest-path.jpg": "a path through a forest",
-  "photo-sea-cliff.jpg": "a rocky sea cliff on a black sand beach",
-  "photo-open-book.jpg": "an open book on a table",
-  "photo-mountain-lake.jpg": "a wooden jetty on a mountain lake",
-  "photo-skateboard.jpg": "a skateboard leaning against a wall",
-  "photo-ocean-waves.jpg": "waves crashing on rocks",
-  "text-readme.png": "a screenshot of a text document",
-  "webpage-example.png": "a screenshot of a simple webpage",
-  "webpage-hn.png": "a screenshot of a news website with a list of links",
-  "webpage-sotw.png": "a screenshot of a colorful webpage",
-  "webpage-wikipedia.png": "a screenshot of a wikipedia article",
-};
+import { CORPUS, CAPTIONS, embed, cosineSim, fmt } from "./lib-harness.mjs";
 
 const CONDITIONS = [
   { name: "identity", p: {} },

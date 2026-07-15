@@ -71,6 +71,23 @@
         "n": 5
       },
       "photoMinusTextualNormalized": 0.9208666759258418
+    },
+    "gemini": {
+      "photos": {
+        "flipSim": 0.9824180935607154,
+        "std": 0.012596146848134421,
+        "floor": 0.6602553334133465,
+        "normalized": 0.9482496469600936,
+        "n": 10
+      },
+      "textual": {
+        "flipSim": 0.8712101263647286,
+        "std": 0.08297617347999887,
+        "floor": 0.741181278602511,
+        "normalized": 0.502393517208215,
+        "n": 5
+      },
+      "photoMinusTextualNormalized": 0.4458561297518786
     }
   }
 }

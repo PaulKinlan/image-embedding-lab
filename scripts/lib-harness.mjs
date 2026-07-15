@@ -20,6 +20,10 @@ export const MODELS = {
   siglip: { id: "Xenova/siglip-base-patch16-224", size: 224 },
   dinov2: { id: "Xenova/dinov2-small", size: 224 },
   florence: { id: "onnx-community/Florence-2-base-ft", size: 768 },
+  // Hosted, VLM-native embedding API (Gemini architecture, 3072-d). Closed model: we can't
+  // control pooling or true input resolution — treat as one more encoder column, not a
+  // controlled comparison. We send lossless PNG at 768 (same render size as Florence).
+  gemini: { id: "gemini-embedding-2", size: 768, api: true },
 };
 
 export const CORPUS = JSON.parse(fs.readFileSync(new URL("../test-images/manifest.json", import.meta.url)))
@@ -27,6 +31,25 @@ export const CORPUS = JSON.parse(fs.readFileSync(new URL("../test-images/manifes
 
 export const PHOTO_FILES = CORPUS.filter((f) => f.startsWith("photo-"));
 export const TEXTUAL_FILES = CORPUS.filter((f) => f.startsWith("text-") || f.startsWith("webpage-"));
+
+// Hand-written reference captions (verified against the actual images, 2026-07-14 corpus audit).
+export const CAPTIONS = {
+  "photo-cafe.jpg": "a cafe interior with coffee cups on a wooden table",
+  "photo-phone-photographer.jpg": "hands taking a photo of a city with a smartphone",
+  "photo-road-tunnel.jpg": "an aerial view of a road tunnel surrounded by trees",
+  "photo-floating-market.jpg": "a floating market with boats full of food",
+  "photo-forest-path.jpg": "a path through a forest",
+  "photo-sea-cliff.jpg": "a rocky sea cliff on a black sand beach",
+  "photo-open-book.jpg": "an open book on a table",
+  "photo-mountain-lake.jpg": "a wooden jetty on a mountain lake",
+  "photo-skateboard.jpg": "a skateboard leaning against a wall",
+  "photo-ocean-waves.jpg": "waves crashing on rocks",
+  "text-readme.png": "a screenshot of a text document",
+  "webpage-example.png": "a screenshot of a simple webpage",
+  "webpage-hn.png": "a screenshot of a news website with a list of links",
+  "webpage-sotw.png": "a screenshot of a colorful webpage",
+  "webpage-wikipedia.png": "a screenshot of a wikipedia article",
+};
 
 const CACHE_DIR = new URL("../.experiment-cache/", import.meta.url).pathname;
 fs.mkdirSync(CACHE_DIR, { recursive: true });
@@ -42,8 +65,58 @@ export async function getImage(file) {
 // --- Model runtimes (lazy) ---
 const runtimes = {};
 
+// --- Gemini Embedding 2 (REST). L2-normalized to match the local pipeline's convention. ---
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent";
+
+async function geminiEmbedParts(parts, attempt = 0) {
+  const res = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
+    body: JSON.stringify({ content: { parts } }),
+  });
+  if ((res.status === 429 || res.status >= 500) && attempt < 5) {
+    const wait = 2000 * (attempt + 1);
+    console.error(`  gemini ${res.status}, retrying in ${wait}ms`);
+    await new Promise((r) => setTimeout(r, wait));
+    return geminiEmbedParts(parts, attempt + 1);
+  }
+  if (!res.ok) throw new Error(`gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const json = await res.json();
+  const values = json.embedding?.values;
+  if (!values?.length) throw new Error(`gemini returned no embedding: ${JSON.stringify(json).slice(0, 200)}`);
+  let mag = 0;
+  for (const x of values) mag += x * x;
+  mag = Math.sqrt(mag) || 1;
+  return values.map((x) => x / mag);
+}
+
+export async function geminiEmbedText(text) {
+  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
+  return geminiEmbedParts([{ text }]);
+}
+
+export async function geminiEmbedCanvas(c) {
+  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
+  const b64 = c.toBuffer("image/png").toString("base64");
+  const pooled = await geminiEmbedParts([{ inlineData: { mimeType: "image/png", data: b64 } }]);
+  await new Promise((r) => setTimeout(r, 400));
+  return Float64Array.from(pooled);
+}
+
 async function getRuntime(model) {
   if (runtimes[model]) return runtimes[model];
+  if (MODELS[model]?.api) {
+    if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
+    runtimes[model] = {
+      async embedCanvas(c) {
+        const b64 = c.toBuffer("image/png").toString("base64");
+        const pooled = await geminiEmbedParts([{ inlineData: { mimeType: "image/png", data: b64 } }]);
+        await new Promise((r) => setTimeout(r, 400));   // stay friendly to preview rate limits
+        return { pooled: Float64Array.from(pooled), tokens: null, dims: [1, pooled.length] };
+      },
+    };
+    return runtimes[model];
+  }
   const T = await import("@huggingface/transformers");
   const m = MODELS[model];
   if (model === "florence") {

@@ -34,6 +34,10 @@ function composite(imgA, imgB, size) {
 const T = await import("@huggingface/transformers");
 async function makeEmbedder(model) {
   const m = MODELS[model];
+  if (m.api) {
+    const { geminiEmbedCanvas } = await import("./lib-harness.mjs");
+    return geminiEmbedCanvas;
+  }
   if (model === "florence") {
     const fl = await T.Florence2ForConditionalGeneration.from_pretrained(m.id, {
       dtype: { embed_tokens: "fp32", vision_encoder: "fp32", encoder_model: "q8", decoder_model_merged: "q8" },
