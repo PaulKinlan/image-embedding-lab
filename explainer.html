@@ -102,8 +102,13 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
     <div>
       <div class="readout" id="w1b-pairs" style="font-variant-numeric:tabular-nums"></div>
       <p style="font-size:.82rem">Cosine is always a <em>pairwise</em> measure, so three vectors give three similarities. The pair with the biggest cosine are <b>nearest neighbors</b>, and that comparison is all retrieval is: "which stored embedding has the largest cosine with my query?" Orbit the scene and notice none of the numbers move; similarity is a property of the vectors, not of your viewpoint.</p>
-      <p style="font-size:.82rem;color:var(--muted)">From here to 512 dimensions is "more of the same": the dot product just has 512 terms instead of 3.</p>
     </div>
+  </div>
+  <div style="margin-top:.8rem">
+    <h3 style="margin-top:0">How three numbers become one</h3>
+    <p style="font-size:.82rem">Each vector here <em>is</em> just three components. Comparing a and b multiplies them component-by-component and sums the products; because both vectors have length 1, that sum <em>is</em> the cosine. Watch the row of products change as you drag a or b:</p>
+    <div id="w1b-dot" style="font-size:.84rem;font-variant-numeric:tabular-nums;overflow-x:auto"></div>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:0">A CLIP comparison is this exact table with 512 columns instead of 3; the sum is still one number. Dimensions where both vectors agree in sign push the similarity up; dimensions where they disagree pull it down.</p>
   </div>
 </div>
 </section>
@@ -443,6 +448,24 @@ function setupCanvas(canvas) {
         ? `${label} <b>${val}</b> <span style="font-size:.72rem;color:var(--accent)">nearest neighbors</span>`
         : `${label} <span style="color:var(--muted)">${val}</span>`;
     }).join('<br>');
+    // dot-product breakdown for a·b: components → products → sum
+    const [va, vb] = [vecs[0].v, vecs[1].v];
+    const prods = [0, 1, 2].map((k) => va[k] * vb[k]);
+    const sum = prods[0] + prods[1] + prods[2];
+    const bar = (v) => {
+      const w = Math.min(40, Math.abs(v) * 40);
+      const col = v >= 0 ? css('--good') : css('--bad');
+      return `<span style="display:inline-block;width:84px"><span style="display:inline-block;width:40px;text-align:right">${v.toFixed(2)}</span> <span style="display:inline-block;height:8px;width:${w}px;background:${col};border-radius:2px;vertical-align:middle"></span></span>`;
+    };
+    const axes = ['x', 'y', 'z'];
+    $('w1b-dot').innerHTML =
+      `<table style="border-collapse:collapse">` +
+      `<tr><td style="padding:.15rem .5rem;color:var(--muted)"></td>${axes.map((ax) => `<td style="padding:.15rem .5rem;color:var(--muted);text-align:center">${ax}</td>`).join('')}<td></td></tr>` +
+      `<tr><td style="padding:.15rem .5rem"><b style="color:${css('--s-clip')}">a</b></td>${[0, 1, 2].map((k) => `<td style="padding:.15rem .5rem">${bar(va[k])}</td>`).join('')}<td></td></tr>` +
+      `<tr><td style="padding:.15rem .5rem"><b style="color:${css('--s-dinov2')}">b</b></td>${[0, 1, 2].map((k) => `<td style="padding:.15rem .5rem">${bar(vb[k])}</td>`).join('')}<td></td></tr>` +
+      `<tr style="border-top:1px solid ${css('--border')}"><td style="padding:.15rem .5rem;color:var(--muted)">a×b</td>${prods.map((p) => `<td style="padding:.15rem .5rem">${bar(p)}</td>`).join('')}` +
+      `<td style="padding:.15rem .5rem;white-space:nowrap">sum = <b>${sum.toFixed(3)}</b> = cos(a,b)</td></tr>` +
+      `</table>`;
   }
   // interaction: drag arrowhead = rotate that vector in camera-aligned axes; empty space = orbit
   const canvas = $('w1b');
