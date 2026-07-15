@@ -117,6 +117,9 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 <tr><td>shuffle 4×4</td><td class="hi">12 / 15</td><td>0.017</td></tr>
 <tr><td>rotate 180°</td><td>11 / 15</td><td>0.030</td></tr>
 <tr><td>rotate 45°</td><td>11 / 15</td><td>0.018</td></tr>
+<tr><td>crop 10%</td><td class="hi">14 / 15</td><td>0.047</td></tr>
+<tr><td>crop 20%</td><td class="hi">14 / 15</td><td>0.049</td></tr>
+<tr><td>crop 35%</td><td>11 / 15</td><td>0.028</td></tr>
 <tr><td>blur</td><td>11 / 15</td><td>0.022</td></tr>
 <tr><td>rotate 90°</td><td>10 / 15</td><td>0.032</td></tr>
 </table>
@@ -128,11 +131,14 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 <tr><td>rotate 90°</td><td class="hi">15 / 15</td><td>0.111</td></tr>
 <tr><td>rotate 180°</td><td>14 / 15</td><td>0.106</td></tr>
 <tr><td>rotate 45°</td><td class="hi">15 / 15</td><td>0.128</td></tr>
+<tr><td>crop 10%</td><td>13 / 15</td><td>0.123</td></tr>
+<tr><td>crop 20%</td><td>13 / 15</td><td>0.113</td></tr>
+<tr><td>crop 35%</td><td class="lo">13 / 15</td><td class="lo">0.048</td></tr>
 <tr><td>shuffle 4×4</td><td class="hi">15 / 15</td><td>0.112</td></tr>
 <tr><td>flip H</td><td>14 / 15</td><td>0.131</td></tr>
 <tr><td>blur</td><td>14 / 15</td><td>0.133</td></tr>
 </table>
-<div class="takeaway"><b>Transform-proof retrieval.</b> Gemini Embedding 2 keeps own-caption top-1 at 14–15/15 under every transform, with margins (~0.12) more than double CLIP's that barely move. A decade of scale plus retrieval-tuning buys semantic robustness that treats rotation, mirroring, and even patch scrambling as noise.</div>
+<div class="takeaway"><b>Transform-proof retrieval, with one revealing exception.</b> Gemini Embedding 2 keeps own-caption top-1 at 13–15/15 under every transform, with margins (~0.12) more than double CLIP's. Its weakest transform is the deep crop: at 35% the margin halves (0.048). That is the one transform in the set that <em>removes</em> content instead of rearranging it — the retrieval-tuned space shrugs at rearrangement and notices deletion, which is the thesis in one row. CLIP shows the mirror image: mild crops (10–20%) beat identity (14/15), since cropping can discard distracting background.</div>
 
 <!-- impeccable-disable numbered-section-markers -- numeric table data values, not section labels -->
 <h2>Synthesis</h2>

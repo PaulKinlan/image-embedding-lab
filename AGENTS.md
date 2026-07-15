@@ -40,7 +40,7 @@ These have all been violated once. Don't repeat them.
    (white letterbox inflates all similarities and confounds rotation). Compare raw pixels, not
    JPEG round-trips — or report both. (`bb4cb3f`)
 
-6. **The corpus must be honest.** Filenames must match content — the original `photo-*` set was
+6. **The corpus must match its labels.** Filenames must match content — the original `photo-*` set was
    wholesale mislabeled (the "kitten" was a forest path) and every narrative built on the names
    was wrong. If you add images, eyeball them. If you rename, rewrite every reference
    (`test-images/manifest.json`, `FLOOR_REFS` in index.html, `report.html`, `results-*.json`) —

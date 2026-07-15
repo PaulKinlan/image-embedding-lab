@@ -188,7 +188,7 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
 </section>
 
 <section>
-<h2>6 · Honest measurement: floors</h2>
+<h2>6 · Floors: calibrating similarity</h2>
 <p>Here's a trap: cosine similarities from different models live on different scales. Two <em>unrelated</em> images score ≈0.15 on DINOv2 but ≈0.69 on Florence. A "0.7 similarity" is impressive for one model and means <em>nothing</em> for the other. So every experiment reports the <b>different-image floor</b> (the average similarity of unrelated images) and normalizes against it: <code>(sim − floor)/(1 − floor)</code>. In high dimensions random directions are nearly orthogonal (try the slider), so these high floors are a property of the <em>model's</em> space, not of geometry.</p>
 <div class="widget">
   <div class="hint">Cosine of random vector pairs vs dimensions, plus the real model floors</div>
@@ -1049,7 +1049,7 @@ Promise.allSettled([
   if (clipAlign.status === 'fulfilled' && gemAlign.status === 'fulfilled') {
     const c = clipAlign.value.results, g = gemAlign.value.results;
     h3For($('c-align'), 'own-caption top-1 retrieval (of 15) after each transform, CLIP vs Gemini Embedding 2');
-    const conds = ['identity', 'shuffle 4×4', 'rotate 90°', 'rotate 45°', 'flip H', 'blur'];
+    const conds = ['identity', 'shuffle 4×4', 'rotate 90°', 'rotate 45°', 'crop 20%', 'crop 35%', 'flip H', 'blur'];
     const rows = [];
     for (const cond of conds) {
       rows.push({ label: `${cond} · CLIP`, value: c[cond].top1Rate, color: seriesColor('clip') });
