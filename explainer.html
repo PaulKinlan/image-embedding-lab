@@ -96,12 +96,12 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
 </div>
 <p>Add one dimension and nothing conceptually changes: the two vectors still span a flat plane between them, and the cosine is still measured inside that plane. That's the mental trick for 512 dimensions too; any two vectors, however many dimensions they live in, meet in a 2D plane of their own.</p>
 <div class="widget">
-  <div class="hint">Now in 3D: drag an arrowhead to move it on the sphere · drag empty space to orbit</div>
+  <div class="hint">Now in 3D, with three vectors: drag an arrowhead to move it on the sphere · drag empty space to orbit</div>
   <div class="wrow">
-    <div><canvas id="w1b" width="340" height="340" aria-label="Two draggable vectors on a 3D unit sphere with the angle between them"></canvas></div>
+    <div><canvas id="w1b" width="340" height="340" aria-label="Three draggable vectors on a 3D unit sphere with pairwise cosine similarities"></canvas></div>
     <div>
-      <div class="readout">cosine similarity <b id="w1b-cos">0.71</b><br><span style="color:var(--muted);font-size:.8rem">angle <span id="w1b-ang">45°</span></span></div>
-      <p style="font-size:.82rem">Both arrows live on the unit sphere (length 1, like a normalized embedding). Orbit the scene and notice the angle between them never changes; similarity is a property of the vectors, not of your viewpoint.</p>
+      <div class="readout" id="w1b-pairs" style="font-variant-numeric:tabular-nums"></div>
+      <p style="font-size:.82rem">Cosine is always a <em>pairwise</em> measure, so three vectors give three similarities. The pair with the biggest cosine are <b>nearest neighbors</b>, and that comparison is all retrieval is: "which stored embedding has the largest cosine with my query?" Orbit the scene and notice none of the numbers move; similarity is a property of the vectors, not of your viewpoint.</p>
       <p style="font-size:.82rem;color:var(--muted)">From here to 512 dimensions is "more of the same": the dot product just has 512 terms instead of 3.</p>
     </div>
   </div>
@@ -362,10 +362,11 @@ function setupCanvas(canvas) {
   const [ctx, W, H] = setupCanvas($('w1b'));
   const C = { x: W / 2, y: H / 2 }, R = W / 2 - 30;
   let cam = { yaw: 0.6, pitch: 0.35 };
-  // two unit vectors
+  // three unit vectors: pairwise cosines make a miniature retrieval problem
   const vecs = [
-    { v: norm3([0.8, 0.4, 0.2]) },
-    { v: norm3([-0.1, 0.9, 0.5]) },
+    { v: norm3([0.8, 0.4, 0.2]), name: 'a' },
+    { v: norm3([-0.1, 0.9, 0.5]), name: 'b' },
+    { v: norm3([0.3, 0.2, -0.9]), name: 'c' },
   ];
   function norm3(v) { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); }
   function dot3(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
@@ -401,33 +402,47 @@ function setupCanvas(canvas) {
       ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(p.x, p.y); ctx.stroke();
     }
     ctx.setLineDash([]);
-    // angle arc: slerp between the two vectors
-    const [a, b] = [vecs[0].v, vecs[1].v];
-    const d = Math.min(1, Math.max(-1, dot3(a, b)));
-    const th = Math.acos(d), s = Math.sin(th) || 1;
-    ctx.strokeStyle = css('--muted'); ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    for (let i = 0; i <= 24; i++) {
-      const t = i / 24;
-      const w = [0, 1, 2].map((k) => (Math.sin((1 - t) * th) * a[k] + Math.sin(t * th) * b[k]) / s * 0.4);
-      const p = project(w);
-      i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
-    }
-    ctx.stroke();
+    // pairwise angle arcs; the closest pair gets a solid accent arc
+    const pairs = [[0, 1], [0, 2], [1, 2]];
+    const cosines = pairs.map(([i, j]) => Math.min(1, Math.max(-1, dot3(vecs[i].v, vecs[j].v))));
+    const best = cosines.indexOf(Math.max(...cosines));
+    pairs.forEach(([i, j], k) => {
+      const a = vecs[i].v, b = vecs[j].v;
+      const th = Math.acos(cosines[k]), s = Math.sin(th) || 1;
+      ctx.strokeStyle = k === best ? css('--accent') : css('--muted');
+      ctx.lineWidth = k === best ? 2.2 : 1;
+      ctx.globalAlpha = k === best ? 1 : 0.5;
+      ctx.beginPath();
+      for (let t = 0; t <= 24; t++) {
+        const f = t / 24;
+        const w = [0, 1, 2].map((d2) => (Math.sin((1 - f) * th) * a[d2] + Math.sin(f * th) * b[d2]) / s * 0.4);
+        const p = project(w);
+        t ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    });
     // vectors, back-to-front
-    const cols = [css('--s-clip'), css('--s-dinov2')];
+    const cols = [css('--s-clip'), css('--s-dinov2'), css('--s-siglip')];
     const order = [...vecs.keys()].sort((i, j) => toCam(vecs[i].v)[2] - toCam(vecs[j].v)[2]);
     const o = project([0, 0, 0]);
+    ctx.font = '600 13px sans-serif';
     for (const i of order) {
       const p = project(vecs[i].v);
       ctx.globalAlpha = 0.55 + 0.45 * ((p.z + 1) / 2);
       ctx.strokeStyle = cols[i]; ctx.fillStyle = cols[i]; ctx.lineWidth = 2.5;
       ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(p.x, p.y); ctx.stroke();
       ctx.beginPath(); ctx.arc(p.x, p.y, 8 * p.s, 0, 7); ctx.fill();
+      ctx.fillText(vecs[i].name, p.x + 11, p.y + 4);
       ctx.globalAlpha = 1;
     }
-    $('w1b-cos').textContent = d.toFixed(3);
-    $('w1b-ang').textContent = Math.round(th * 180 / Math.PI) + '°';
+    $('w1b-pairs').innerHTML = pairs.map(([i, j], k) => {
+      const label = `${vecs[i].name}·${vecs[j].name}`;
+      const val = cosines[k].toFixed(3);
+      return k === best
+        ? `${label} <b>${val}</b> <span style="font-size:.72rem;color:var(--accent)">nearest neighbors</span>`
+        : `${label} <span style="color:var(--muted)">${val}</span>`;
+    }).join('<br>');
   }
   // interaction: drag arrowhead = rotate that vector in camera-aligned axes; empty space = orbit
   const canvas = $('w1b');
