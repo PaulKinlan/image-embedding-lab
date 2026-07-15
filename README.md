@@ -11,9 +11,9 @@ Live: https://paulkinlan.github.io/image-embedding-lab/ · [How it works (explai
 [Layout report](layout-report.html) · [Findings](FINDINGS.md)
 
 The **Reverse image search demo** (`search.html`) puts the whole thesis to work: an 800-image
-corpus embedded offline with CLIP, SigLIP and DINOv2 (`scripts/build-search-index.mjs`), packed
+corpus embedded offline with six encoders — CLIP, SigLIP, DINOv2, Florence-2, Gemma 4 (see `lib/gemma4.mjs` for the story of getting it working) and Gemini Embedding 2 (`scripts/build-search-index.mjs` + `build-search-index-gemma4.mjs`), packed
 into one SQLite file that the page loads with sql.js and queries entirely client-side. Pick any
-query image, crop and rotate it with live re-search, and compare the three models' rankings
+query image, crop and rotate it with live re-search, and compare the models' rankings
 side by side: every hit shows its cosine, hits above each model's same-image threshold (from
 the layout experiments) are marked, and the query's source image is outlined so you can watch
 it fall down the rankings as the transform deepens. Search is exact (one dot product per corpus
@@ -104,8 +104,10 @@ vision tokens. OCR comes from throwing far more patches at the image, not a smar
 - **CLIP** (OpenAI, 2021) — trained on image↔caption pairs, so it's language-aligned.
 - **SigLIP** (Google) — same idea, sigmoid loss, generally sharper.
 - **DINOv2** (Meta) — *self-supervised*, never told about language; a good contrast.
-- **Gemma 4 vision** (experimental here, via ONNX Runtime) — a SigLIP-derived encoder pulled out
-  of a VLM.
+- **Gemma 4 vision** (via ONNX Runtime) — the encoder pulled out of a VLM. Parked as "broken"
+  for days until one `session.inputNames` inspection revealed its ONNX takes *pre-patchified*
+  input (flattened 16px patches + position ids), not an image; preprocessing ported in
+  `lib/gemma4.mjs` and it now works in the browser and the search index.
 Comparing language-aligned vs self-supervised is a big part of the fun.
 
 **7. Semantic invariance vs surface form.**
