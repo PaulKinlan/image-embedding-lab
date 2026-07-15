@@ -1,0 +1,54 @@
+{
+  "pairs": [
+    [
+      "photo-forest-path.jpg",
+      "photo-ocean-waves.jpg"
+    ],
+    [
+      "photo-cafe.jpg",
+      "photo-mountain-lake.jpg"
+    ],
+    [
+      "photo-skateboard.jpg",
+      "photo-floating-market.jpg"
+    ],
+    [
+      "webpage-hn.png",
+      "webpage-wikipedia.png"
+    ],
+    [
+      "text-readme.png",
+      "webpage-example.png"
+    ],
+    [
+      "photo-sea-cliff.jpg",
+      "webpage-sotw.png"
+    ]
+  ],
+  "results": {
+    "clip": {
+      "swap": 0.9129803002739393,
+      "swapStd": 0.04054978590890011,
+      "floor": 0.4821293143385979,
+      "normalized": 0.8319663535020853
+    },
+    "siglip": {
+      "swap": 0.9771260807300494,
+      "swapStd": 0.008289466744037442,
+      "floor": 0.552396516236796,
+      "normalized": 0.9488969141222063
+    },
+    "dinov2": {
+      "swap": 0.9502167434934864,
+      "swapStd": 0.030759762014409067,
+      "floor": 0.214801053298689,
+      "normalized": 0.9365979071728797
+    },
+    "florence": {
+      "swap": 0.985861652894242,
+      "swapStd": 0.013867631707836427,
+      "floor": 0.7104884864233085,
+      "normalized": 0.9511648192118868
+    }
+  }
+}

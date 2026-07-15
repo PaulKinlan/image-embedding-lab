@@ -1,0 +1,50 @@
+{
+  "model": "Xenova/clip-vit-base-patch32",
+  "captions": {
+    "photo-cafe.jpg": "a cafe interior with coffee cups on a wooden table",
+    "photo-phone-photographer.jpg": "hands taking a photo of a city with a smartphone",
+    "photo-road-tunnel.jpg": "an aerial view of a road tunnel surrounded by trees",
+    "photo-floating-market.jpg": "a floating market with boats full of food",
+    "photo-forest-path.jpg": "a path through a forest",
+    "photo-sea-cliff.jpg": "a rocky sea cliff on a black sand beach",
+    "photo-open-book.jpg": "an open book on a table",
+    "photo-mountain-lake.jpg": "a wooden jetty on a mountain lake",
+    "photo-skateboard.jpg": "a skateboard leaning against a wall",
+    "photo-ocean-waves.jpg": "waves crashing on rocks",
+    "text-readme.png": "a screenshot of a text document",
+    "webpage-example.png": "a screenshot of a simple webpage",
+    "webpage-hn.png": "a screenshot of a news website with a list of links",
+    "webpage-sotw.png": "a screenshot of a colorful webpage",
+    "webpage-wikipedia.png": "a screenshot of a wikipedia article"
+  },
+  "results": {
+    "identity": {
+      "top1Rate": 0.8666666666666667,
+      "meanMargin": 0.048782719724345426
+    },
+    "rotate 90°": {
+      "top1Rate": 0.6666666666666666,
+      "meanMargin": 0.032314481179590765
+    },
+    "rotate 180°": {
+      "top1Rate": 0.7333333333333333,
+      "meanMargin": 0.029528169294668706
+    },
+    "rotate 45°": {
+      "top1Rate": 0.7333333333333333,
+      "meanMargin": 0.0177970443201328
+    },
+    "shuffle 4×4": {
+      "top1Rate": 0.8,
+      "meanMargin": 0.01729203519155275
+    },
+    "flip H": {
+      "top1Rate": 0.8666666666666667,
+      "meanMargin": 0.044719645398644745
+    },
+    "blur": {
+      "top1Rate": 0.7333333333333333,
+      "meanMargin": 0.021807283295975574
+    }
+  }
+}
