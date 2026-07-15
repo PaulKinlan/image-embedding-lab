@@ -10,7 +10,7 @@
 //   another copy (double-storing ~GB models is what pushed the origin into quota eviction).
 // - Only jsdelivr files (the Transformers.js module itself, ~1MB) are stored by us, in
 //   MODEL_CACHE — the library doesn't cache its own JS.
-const IEL_SW_VERSION = '2026-07-14-v3';
+const IEL_SW_VERSION = '2026-07-15-v1';
 const MODEL_CACHE = `iel-models`;
 const SHELL_CACHE = `iel-shell-${IEL_SW_VERSION}`;
 const HF_ORIGINS = ['huggingface.co', 'cdn-lfs.huggingface.co'];

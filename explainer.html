@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="An interactive explainer: what an embedding is, how an image becomes a vector, why pooling and training objectives decide what survives — and what our seven experiments found.">
+<title>How image embeddings work — an interactive explainer</title>
+<style>
+:root{color-scheme:light dark;--color:#000;--background:#fdfcf8;--bg-secondary:#f0eee6;--border:#e0ddd4;--muted:#666;--accent:#4b3aff;--good:#1a8a3a;--bad:#c0392b;--warn:#e6a700;
+  --s-clip:#2a78d6;--s-siglip:#1baf7a;--s-dinov2:#eda100;--s-florence:#008300;--s-gemini:#4a3aa7}
+@media(prefers-color-scheme:dark){:root{--color:#e8e4dc;--background:#1c1a17;--bg-secondary:#2a2723;--border:#3a3530;--muted:#9a9088;--accent:#8ab4f8;--good:#57c97a;--bad:#e06c75;--warn:#d9a441;
+  --s-clip:#3987e5;--s-siglip:#199e70;--s-dinov2:#c98500;--s-florence:#008300;--s-gemini:#9085e9}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.7;color:var(--color);background:var(--background);padding:1.5rem;max-width:880px;margin:0 auto}
+h1{font-family:Georgia,serif;font-size:1.9rem;font-weight:normal;margin-bottom:.3rem}
+h2{font-family:Georgia,serif;font-size:1.3rem;font-weight:normal;margin:2.6rem 0 .6rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}
+h3{font-size:.95rem;margin:1.2rem 0 .4rem}
+.sub{color:var(--muted);font-size:.88rem;margin-bottom:1.2rem}
+a{color:var(--accent)}
+p{margin:.6rem 0;font-size:.92rem}
+code{background:var(--bg-secondary);padding:.05rem .35rem;border-radius:.3rem;font-size:.85em}
+.links{display:flex;gap:.5rem;flex-wrap:wrap;margin:-.4rem 0 1.4rem}
+.links a{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;text-decoration:none;padding:.3rem .7rem;border:1px solid var(--border);border-radius:999px;background:var(--bg-secondary);color:var(--color)}
+.links a:hover{border-color:var(--accent);color:var(--accent)}
+.widget{border:1px solid var(--border);border-radius:.6rem;background:var(--bg-secondary);padding:1rem;margin:1rem 0}
+.widget .hint{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem}
+.widget canvas{display:block;max-width:100%;border-radius:.4rem;background:var(--background);border:1px solid var(--border);touch-action:none}
+.wrow{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start}
+.wrow>div{flex:1;min-width:260px}
+.readout{font-size:.9rem;font-variant-numeric:tabular-nums;margin-top:.6rem}
+.readout b{font-size:1.4rem}
+.controls{display:flex;gap:.9rem;flex-wrap:wrap;align-items:center;margin:.6rem 0}
+.controls label{font-size:.75rem;color:var(--muted);display:flex;gap:.45rem;align-items:center}
+.controls input[type=range]{width:150px;accent-color:var(--accent)}
+button{font:inherit;padding:.35rem .9rem;border:1px solid var(--border);border-radius:.35rem;background:var(--accent);color:#fff;cursor:pointer;font-size:.8rem}
+button.secondary{background:var(--background);color:var(--color)}
+button[aria-pressed="true"]{outline:2px solid var(--accent)}
+.takeaway{background:var(--bg-secondary);border-left:3px solid var(--accent);border-radius:.4rem;padding:.7rem 1rem;font-size:.88rem;margin:1rem 0}
+.claim{background:var(--bg-secondary);border-radius:.5rem;padding:.8rem 1rem;margin:.6rem 0;font-size:.88rem}
+.claim b{color:var(--accent)}
+.legend{display:flex;gap:1rem;flex-wrap:wrap;font-size:.78rem;margin:.5rem 0}
+.legend span{display:inline-flex;align-items:center;gap:.35rem}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.chart{margin:.8rem 0}
+.chart svg{width:100%;height:auto;display:block}
+.chart .bar-label{font-size:11px;fill:var(--color)}
+.chart .bar-value{font-size:11px;fill:var(--muted);font-variant-numeric:tabular-nums}
+.chart .axis-note{font-size:10px;fill:var(--muted)}
+details{margin:.4rem 0;font-size:.8rem}
+details summary{cursor:pointer;color:var(--muted)}
+details table{border-collapse:collapse;margin:.5rem 0;font-variant-numeric:tabular-nums}
+details td,details th{border-bottom:1px solid var(--border);padding:.25rem .6rem;text-align:right}
+details th:first-child,details td:first-child{text-align:left}
+.pooldemo{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:620px){.pooldemo{grid-template-columns:1fr}}
+.pgrid{display:grid;grid-template-columns:repeat(3,44px);gap:3px;margin:.4rem 0}
+.pgrid i{width:44px;height:44px;border-radius:4px;display:block}
+.pool-out{display:flex;align-items:center;gap:.6rem;margin-top:.5rem;font-size:.82rem}
+.pool-out i{width:34px;height:34px;border-radius:6px;display:inline-block;border:1px solid var(--border)}
+.tabs{display:flex;gap:.4rem;margin:.6rem 0}
+.tabs button{background:var(--background);color:var(--color)}
+.tabs button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.caption-row{font-size:.85rem;background:var(--background);border:1px solid var(--border);border-radius:.4rem;padding:.55rem .8rem;margin:.4rem 0;display:grid;grid-template-columns:64px 1fr;gap:.7rem;align-items:center}
+.caption-row canvas{width:64px;height:64px;border:0}
+.caption-row .ang{font-size:.7rem;color:var(--muted)}
+select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-radius:.35rem;background:var(--background);color:var(--color);font-size:.82rem}
+.note{font-size:.75rem;color:var(--muted);margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border)}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    section{animation:sec-in auto linear both;animation-timeline:view();animation-range:entry 0% entry 40%}
+    @keyframes sec-in{from{opacity:.2;translate:0 14px}to{opacity:1;translate:0 0}}
+  }
+}
+</style>
+</head>
+<body>
+<h1>How image embeddings work</h1>
+<p class="sub">An interactive explainer, from first principles to what our experiments found. Everything on this page runs locally — drag, slide, and press things. No model downloads here; the <a href="index.html">lab</a>, <a href="vector-viz.html">visualizer</a> and <a href="vlm.html">VLM playground</a> are where you run the real encoders.</p>
+<div class="links"><a href="index.html">← Embedding lab</a><a href="vector-viz.html">Vector visualizer</a><a href="layout-report.html">Layout report</a><a href="vlm.html">VLM playground</a><a href="https://github.com/PaulKinlan/image-embedding-lab" target="_blank">↗ GitHub</a></div>
+
+<section>
+<h2>1 · An embedding is a point; similarity is an angle</h2>
+<p>An embedding is just a list of numbers — a <em>vector</em> — that positions something in a space. A 512-dimensional CLIP embedding is a point in a 512-dimensional space; things the model considers similar end up pointing in similar directions. We can't draw 512 dimensions, but the geometry that matters is already visible in two: similarity between vectors is measured by the <b>cosine of the angle between them</b> — 1 when they point the same way, 0 at right angles, −1 when opposite. Length doesn't matter (embeddings are usually normalized to length 1), only direction.</p>
+<div class="widget">
+  <div class="hint">Drag the two arrowheads</div>
+  <div class="wrow">
+    <div><canvas id="w1" width="340" height="340" aria-label="Two draggable vectors showing the angle between them"></canvas></div>
+    <div>
+      <div class="readout">cosine similarity <b id="w1-cos">0.87</b><br><span style="color:var(--muted);font-size:.8rem">angle <span id="w1-ang">30°</span></span></div>
+      <p style="font-size:.82rem">cos(θ) = (a·b) / (|a||b|) — the dot product of the two vectors, divided by their lengths. In 512 dimensions the formula is identical, just with a longer sum.</p>
+      <p style="font-size:.82rem;color:var(--muted)">Every number this site reports — "0.87 similarity" — is exactly this, computed in the model's space.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<section>
+<h2>2 · From pixels to patches to tokens</h2>
+<p>A vision transformer (ViT) can't look at pixels one by one — it chops the image into a grid of <b>patches</b> and treats each patch like a word in a sentence. Each patch is flattened, passed through a learned projection, and becomes a <b>token</b>: a vector describing that patch. CLIP-B/32 uses 32-pixel patches (a 224×224 image → 7×7 = 49 tokens); SigLIP-B/16 uses 16 (196 tokens); Florence-2's DaViT works at 768×768. Smaller patches = more tokens = more detail = more compute.</p>
+<div class="widget">
+  <div class="hint">Slide to change patch size · hover the image</div>
+  <div class="wrow">
+    <div><canvas id="w2" width="336" height="336" aria-label="Corpus image with a patch grid overlay"></canvas></div>
+    <div>
+      <div class="controls"><label>patch size <input type="range" id="w2-p" min="0" max="3" step="1" value="1"></label></div>
+      <div class="readout"><b id="w2-count">49</b> tokens <span style="color:var(--muted)">(<span id="w2-desc">224÷32 = 7 × 7</span>)</span></div>
+      <p style="font-size:.82rem" id="w2-hover">Hover a patch: each one becomes a separate token.</p>
+      <p style="font-size:.82rem;color:var(--muted)">This is why fixed-resolution encoders can't read small text — at 224px, a whole word can disappear inside one 32px patch. (That's what the <a href="tiling-report.html">tiling experiments</a> attack.)</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<section>
+<h2>3 · Position embeddings: the "where" tag</h2>
+<p>A transformer is naturally order-blind — a bag of tokens. So before anything else, each token gets a <b>position embedding</b> added to it: a learned "I am patch (3,5)" tag baked into the token's numbers. From that moment on, <em>what</em> a patch shows and <em>where</em> it sits are mixed together in the same vector. This single design decision is why the question "does an embedding encode what-is-where?" is interesting at all.</p>
+<div class="widget">
+  <div class="hint">Scramble the patches — content identical, layout destroyed</div>
+  <div class="wrow">
+    <div><canvas id="w3" width="336" height="336" aria-label="Image whose patches can be shuffled"></canvas></div>
+    <div>
+      <div class="controls">
+        <button class="secondary" data-g="1" aria-pressed="true">original</button>
+        <button class="secondary" data-g="2">shuffle 2×2</button>
+        <button class="secondary" data-g="4">shuffle 4×4</button>
+        <button class="secondary" data-g="8">shuffle 8×8</button>
+      </div>
+      <p style="font-size:.82rem">Every pixel is still there — the histogram is untouched. Only the arrangement changed. A pure "bag of semantics" model should embed these identically; a layout-aware one shouldn't.</p>
+      <p style="font-size:.82rem;color:var(--muted)">This exact transform (same seeded permutation) is experiment 1 of the <a href="layout-report.html">layout report</a>. Hold this thought.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<section>
+<h2>4 · The transformer mixes; pooling summarizes</h2>
+<p>Attention layers let every token look at every other token — after a dozen layers, each token has absorbed context from the whole image. But you still have 49–577 token vectors and you want <b>one</b> embedding. That last step, <b>pooling</b>, quietly decides what survives:</p>
+<p><b>Mean-pooling</b> averages all tokens. Averaging is <em>order-blind</em>: rearrange the tokens and the mean is identical. <b>CLS pooling</b> instead uses one special summary token that <em>attends</em> to the others — and attention weights can depend on position, so arrangement leaks into the summary.</p>
+<div class="widget">
+  <div class="hint">Same nine tokens, two arrangements — pool them</div>
+  <div class="pooldemo">
+    <div><h3>Arrangement A</h3><div class="pgrid" id="w4-a"></div></div>
+    <div><h3>Arrangement B (shuffled)</h3><div class="pgrid" id="w4-b"></div></div>
+  </div>
+  <div class="controls">
+    <button id="w4-mean">mean-pool both</button>
+    <button id="w4-cls" class="secondary">CLS-style (position-weighted) both</button>
+    <button id="w4-reshuffle" class="secondary">reshuffle B</button>
+  </div>
+  <div class="pool-out" id="w4-out">Press a pooling button.</div>
+</div>
+<div class="takeaway">This is the single most important idea for reading our results: <b>"how much the embedding moves" is a property of the pooling, not just the encoder.</b> A mean-pooled model can look layout-blind even when its tokens are full of position information.</div>
+</section>
+
+<section>
+<h2>5 · Training objectives shape the space</h2>
+<p>Architecture decides what <em>can</em> be represented; the <b>training objective</b> decides what <em>is</em>. The three families we test were trained to do different jobs:</p>
+<div class="widget">
+  <div class="hint">Pick an objective, watch the space organize</div>
+  <div class="tabs" role="tablist">
+    <button aria-pressed="true" data-mode="contrastive">Contrastive (CLIP, SigLIP)</button>
+    <button aria-pressed="false" data-mode="ssl">Self-supervised (DINOv2)</button>
+    <button aria-pressed="false" data-mode="vlm">VLM encoder (Florence-2)</button>
+  </div>
+  <canvas id="w5" width="720" height="300" aria-label="Animated simulation of a training objective organizing points"></canvas>
+  <p style="font-size:.82rem" id="w5-desc">Contrastive training pulls each image toward its caption and pushes it from every other caption. Whatever the caption doesn't mention — orientation, layout, viewpoint — earns no gradient, and the space learns to discard it.</p>
+</div>
+<p style="font-size:.86rem"><b>Self-supervised</b> (DINOv2): different crops/augmentations of the <em>same</em> image are pulled together — no language anywhere, so "similar" means visually, structurally similar. <b>VLM encoders</b> (Florence-2's DaViT) aren't trained to make a nice space at all: their tokens feed a language decoder that must answer "read the text", "where is the dog" — so <em>what-is-where must survive</em>, or the decoder starves.</p>
+</section>
+
+<section>
+<h2>6 · Honest measurement: floors</h2>
+<p>Here's a trap: cosine similarities from different models live on different scales. Two <em>unrelated</em> images score ≈0.15 on DINOv2 but ≈0.69 on Florence. A "0.7 similarity" is impressive for one model and means <em>nothing</em> for the other. So every experiment reports the <b>different-image floor</b> — the average similarity of unrelated images — and normalizes against it: <code>(sim − floor)/(1 − floor)</code>. In high dimensions random directions are nearly orthogonal (try the slider), so these high floors are a property of the <em>model's</em> space, not of geometry.</p>
+<div class="widget">
+  <div class="hint">Cosine of random vector pairs vs dimensions — and the real model floors</div>
+  <div class="wrow">
+    <div><canvas id="w6" width="420" height="240" aria-label="Histogram of cosines between random vectors"></canvas></div>
+    <div>
+      <div class="controls"><label>dimensions <input type="range" id="w6-d" min="0" max="5" step="1" value="3"></label> <span class="readout" style="margin:0">D = <b id="w6-dval">512</b></span></div>
+      <p style="font-size:.82rem">Random unit vectors concentrate near cosine 0 as D grows. Real images aren't random — models see shared statistics (edges, sky, gray letterbox) — so their floors sit far above 0, and differ per model:</p>
+      <div id="w6-floors" style="font-size:.82rem;font-variant-numeric:tabular-nums;color:var(--muted)">loading floors…</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<section>
+<h2>7 · When can you say "same image"?</h2>
+<p>The practical question behind all of this: given two embeddings, <b>what cosine value lets you claim they're the same image with high confidence?</b> It's a separation problem. Plot two distributions: similarities of <em>different</em> images (the impostors) and similarities of an image to its own transformed self. If a threshold cleanly splits them, everything above it is "same image" — the highest impostor score is your safety line. Drag the threshold and watch both error rates; switch models and transform groups.</p>
+<div class="widget">
+  <div class="hint">Drag the threshold line · impostors in gray, same-image pairs in color</div>
+  <div class="controls">
+    <select id="w8-model" aria-label="model"></select>
+    <select id="w8-group" aria-label="transform group">
+      <option value="rotations">rotations (45–270°)</option>
+      <option value="crops">crops (10–35%)</option>
+      <option value="flips">horizontal flip</option>
+      <option value="shuffles">patch shuffles</option>
+    </select>
+  </div>
+  <canvas id="w8" width="720" height="240" aria-label="Histograms of impostor and same-image similarities with a draggable threshold"></canvas>
+  <div class="readout" id="w8-read">loading distributions…</div>
+  <div id="w8-summary" style="font-size:.82rem;color:var(--muted);margin-top:.5rem"></div>
+</div>
+<div class="takeaway" id="w8-takeaway"><b>Rules of thumb from this corpus</b> (loading…)</div>
+</section>
+
+<section>
+<h2>8 · What a VLM does differently</h2>
+<p>An embedding model <em>reduces</em> an image to a vector. A VLM <em>reads</em> it: Florence-2's DaViT encoder produces 577 tokens, and a small language decoder consumes them like a sentence, writing captions or transcribing text. We can still steal an embedding from it (mean-pool the 577 tokens) — but the encoder's real customer is the decoder, and the decoder's output is a second, sharper window into what the representation keeps. Below are the model's <em>actual captions</em> for our corpus under rotation (from experiment 5 — live data, not mock):</p>
+<div class="widget">
+  <div class="hint">Pick an image — captions are Florence-2's real output at each angle</div>
+  <div class="controls"><select id="w7-img" aria-label="choose corpus image"></select></div>
+  <div id="w7-rows">loading captions…</div>
+  <p style="font-size:.82rem;color:var(--muted)">Notice the pattern: embedding cosine stays ~0.8 (benign-looking) while the caption changes completely — and rotated <em>documents</em> stop being read at all.</p>
+</div>
+</section>
+
+<section>
+<h2>9 · The results, in context</h2>
+<p>With the machinery above, the <a href="layout-report.html">seven experiments</a> stop being isolated numbers and become one story. Charts load the live results JSONs from this repo.</p>
+<div class="legend" id="model-legend"></div>
+
+<h3>Scramble the patches (§3's transform) — who notices?</h3>
+<div class="chart" id="c-shuffle"></div>
+<p style="font-size:.86rem">Read with §4 in mind: CLIP (the only CLS-projection here) moves the most; the mean-pooled models barely flinch; the retrieval-tuned Gemini flinches least of all. <b>The chart ranks poolings and objectives, not "how much layout the encoder saw".</b></p>
+
+<h3>Can a probe recover the rotation angle from the embedding?</h3>
+<div class="chart" id="c-probe"></div>
+<p style="font-size:.86rem">Everyone beats 25% chance — the orientation information is <em>in every vector</em>, including the ones whose cosine barely moved. Invariance-of-cosine and absence-of-information are different claims (§4 again). The ordering — Florence &gt; DINOv2 &gt; SigLIP &gt; CLIP — is the thesis ordering: encoders trained to feed a decoder keep the most <em>where</em>.</p>
+
+<h3>Put the tokens back: equivariance</h3>
+<div class="chart" id="c-equi"></div>
+<p style="font-size:.86rem">Working at the token level (before pooling), we rotate token <em>positions</em> back after rotating the image. DINOv2 recovers a third of the lost similarity — its tokens are portable patch descriptions with position carried alongside (<em>equivariance</em>). Florence gets <em>worse</em>: position is entangled into the token features themselves. Layout isn't metadata for a VLM encoder — it's part of the percept.</p>
+
+<h3>Mirror it: invariance depends on content</h3>
+<div class="chart" id="c-mirror"></div>
+<p style="font-size:.86rem">A mirrored beach is still a beach; mirrored text is unreadable. The flip penalty on text scales with how much the model <em>reads</em>: DINOv2 (no language) can't tell; Florence (does OCR) treats a mirrored document like a different image. "Semantic invariance" is a property of model × content, not of a model.</p>
+
+<h3>Does the meaning survive? Caption retrieval under transforms</h3>
+<div class="chart" id="c-align"></div>
+<p style="font-size:.86rem">The image must find its own caption among 15 (image↔text cosine, top-1). CLIP survives shuffling that wrecks its image↔image cosine — the vector moved, but stayed in the right neighborhood. Gemini Embedding 2 is transform-proof here. Meanwhile (§7) Florence's captions were <em>destroyed</em> by rotations its cosine shrugged at: <b>semantic robustness and vector robustness are different axes.</b></p>
+
+<h2>The five claims</h2>
+<div class="claim"><b>1.</b> Layout information is in <em>every</em> image embedding — a probe recovers orientation from all five models.</div>
+<div class="claim"><b>2.</b> How much the pooled vector <em>moves</em> measures the aggregation (CLS vs mean-pool), not the encoder. State your pooling or your invariance claim is meaningless.</div>
+<div class="claim"><b>3.</b> Encoders carry position differently: DINOv2 is substantially equivariant; Florence entangles position into its token features.</div>
+<div class="claim"><b>4.</b> Semantic robustness ≠ vector robustness — and which transforms are "safe" depends on the content (mirrored beach vs mirrored document).</div>
+<div class="claim"><b>5.</b> "VLM-native" describes a lineage, not an embedding: Gemini's retrieval-tuned head squeezes layout <em>out</em> of a VLM-lineage encoder. The head's objective decides what survives.</div>
+
+<div class="takeaway"><b>Practical guidance.</b> Picking an embedding for search/retrieval? Layout-blindness is a feature — retrieval-tuned spaces (Gemini-class, CLIP-style) are what you want, and our caption-retrieval numbers show why. Building anything spatial (region search, document layout, "what changed where")? Pooled vectors throw away exactly what you need — work with token grids, or an encoder like DINOv2 whose structure survives. And never compare cosines across models without floors (§6).</div>
+</section>
+
+<p class="note">All numbers come from the repo's <code>results-*.json</code>, generated by <code>scripts/experiment-*.mjs</code> (see the <a href="layout-report.html">layout report</a> for method + caveats — n=15, one seed, closed-model caveats for Gemini). Charts follow a validated colorblind-safe palette; every chart has a data table (<em>view data</em>). Built as part of the <a href="https://github.com/PaulKinlan/image-embedding-lab">image-embedding-lab</a> learning project.</p>
+
+<script type="module">
+import { mulberry32 } from './lib/vector-viz.mjs';
+
+const $ = (id) => document.getElementById(id);
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const SERIES = [
+  { key: 'clip', label: 'CLIP B/32', v: '--s-clip' },
+  { key: 'siglip', label: 'SigLIP B/16', v: '--s-siglip' },
+  { key: 'dinov2', label: 'DINOv2-S', v: '--s-dinov2' },
+  { key: 'florence', label: 'Florence-2', v: '--s-florence' },
+  { key: 'gemini', label: 'Gemini Emb. 2', v: '--s-gemini' },
+];
+const seriesColor = (key) => css(SERIES.find((s) => s.key === key).v);
+
+// Crisp canvases on high-DPI screens
+function setupCanvas(canvas) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = canvas.width, h = canvas.height;
+  canvas.style.width = w + 'px';
+  canvas.style.maxWidth = '100%';
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return [ctx, w, h];
+}
+
+// ---------- §1 cosine playground ----------
+(() => {
+  const [ctx, W, H] = setupCanvas($('w1'));
+  const C = { x: W / 2, y: H / 2 }, R = W / 2 - 24;
+  const vec = [{ a: -0.5 }, { a: 0.15 }];
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = css('--border'); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(C.x, C.y, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(C.x - R, C.y); ctx.lineTo(C.x + R, C.y); ctx.moveTo(C.x, C.y - R); ctx.lineTo(C.x, C.y + R); ctx.stroke();
+    const cols = [css('--s-clip'), css('--s-dinov2')];
+    vec.forEach((v, i) => {
+      const x = C.x + R * Math.cos(v.a), y = C.y + R * Math.sin(v.a);
+      ctx.strokeStyle = cols[i]; ctx.fillStyle = cols[i]; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(C.x, C.y); ctx.lineTo(x, y); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+    });
+    // angle arc
+    ctx.strokeStyle = css('--muted'); ctx.lineWidth = 1.5;
+    const a0 = Math.min(vec[0].a, vec[1].a), a1 = Math.max(vec[0].a, vec[1].a);
+    ctx.beginPath(); ctx.arc(C.x, C.y, 34, a0, a1); ctx.stroke();
+    let d = Math.abs(vec[0].a - vec[1].a) % (2 * Math.PI);
+    if (d > Math.PI) d = 2 * Math.PI - d;
+    $('w1-cos').textContent = Math.cos(d).toFixed(3);
+    $('w1-ang').textContent = Math.round(d * 180 / Math.PI) + '°';
+  }
+  let drag = null;
+  const canvas = $('w1');
+  const pos = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) };
+  };
+  canvas.addEventListener('pointerdown', (e) => {
+    const p = pos(e);
+    let best = 0, bd = 1e9;
+    vec.forEach((v, i) => {
+      const x = C.x + R * Math.cos(v.a), y = C.y + R * Math.sin(v.a);
+      const d2 = (p.x - x) ** 2 + (p.y - y) ** 2;
+      if (d2 < bd) { bd = d2; best = i; }
+    });
+    drag = best;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (drag == null) return;
+    const p = pos(e);
+    vec[drag].a = Math.atan2(p.y - C.y, p.x - C.x);
+    draw();
+  });
+  canvas.addEventListener('pointerup', () => { drag = null; });
+  draw();
+})();
+
+// ---------- §2 patch slicer + §3 shuffle (share the image) ----------
+const IMG = new Image();
+IMG.src = 'test-images/photo-forest-path.jpg';
+IMG.onload = () => { initPatches(); initShuffle(); };
+
+function initPatches() {
+  const [ctx, W, H] = setupCanvas($('w2'));
+  const sizes = [16, 28, 32, 56];
+  let p = 32, hover = null;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(IMG, 0, 0, W, H);
+    const n = Math.floor(224 / p), cell = W / n;
+    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1;
+    for (let i = 1; i < n; i++) {
+      ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(W, i * cell); ctx.stroke();
+    }
+    if (hover) {
+      ctx.strokeStyle = css('--accent'); ctx.lineWidth = 3;
+      ctx.strokeRect(hover.x * cell + 1.5, hover.y * cell + 1.5, cell - 3, cell - 3);
+    }
+    $('w2-count').textContent = n * n;
+    $('w2-desc').textContent = `224÷${p} = ${n} × ${n}`;
+  }
+  $('w2-p').addEventListener('input', (e) => { p = sizes[+e.target.value]; hover = null; draw(); });
+  $('w2').addEventListener('pointermove', (e) => {
+    const r = $('w2').getBoundingClientRect();
+    const n = Math.floor(224 / p), cell = r.width / n;
+    hover = { x: Math.min(n - 1, Math.floor((e.clientX - r.left) / cell)), y: Math.min(n - 1, Math.floor((e.clientY - r.top) / cell)) };
+    $('w2-hover').textContent = `patch (${hover.x}, ${hover.y}) → token #${hover.y * n + hover.x} of ${n * n}`;
+    draw();
+  });
+  $('w2').addEventListener('pointerleave', () => { hover = null; draw(); });
+  draw();
+}
+
+function initShuffle() {
+  const [ctx, W, H] = setupCanvas($('w3'));
+  const off = document.createElement('canvas');
+  off.width = W; off.height = H;
+  off.getContext('2d').drawImage(IMG, 0, 0, W, H);
+  function draw(g) {
+    ctx.clearRect(0, 0, W, H);
+    if (g <= 1) { ctx.drawImage(off, 0, 0); return; }
+    const t = W / g;
+    const rand = mulberry32(42);
+    const perm = Array.from({ length: g * g }, (_, i) => i);
+    for (let i = perm.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [perm[i], perm[j]] = [perm[j], perm[i]];
+    }
+    for (let cell = 0; cell < g * g; cell++) {
+      const from = perm[cell];
+      ctx.drawImage(off, (from % g) * t, Math.floor(from / g) * t, t, t, (cell % g) * t, Math.floor(cell / g) * t, t, t);
+    }
+  }
+  document.querySelectorAll('#w3 ~ div .controls button, .widget .controls button[data-g]').forEach((b) => {
+    if (!b.dataset.g) return;
+    b.addEventListener('click', () => {
+      document.querySelectorAll('button[data-g]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+      draw(+b.dataset.g);
+    });
+  });
+  draw(1);
+}
+
+// ---------- §4 pooling demo ----------
+(() => {
+  const baseHues = [210, 210, 30, 150, 210, 30, 260, 150, 30];
+  const vals = baseHues.map((h, i) => ({ h, l: 42 + (i * 7) % 30 }));
+  let order = [...Array(9).keys()];
+  const shuf = (seed) => {
+    const rand = mulberry32(seed);
+    const o = [...Array(9).keys()];
+    for (let i = 8; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    return o;
+  };
+  order = shuf(7);
+  const colorOf = (v) => `hsl(${v.h} 70% ${v.l}%)`;
+  function render() {
+    $('w4-a').innerHTML = vals.map((v) => `<i style="background:${colorOf(v)}"></i>`).join('');
+    $('w4-b').innerHTML = order.map((i) => `<i style="background:${colorOf(vals[i])}"></i>`).join('');
+  }
+  // "pooling" on hue/lightness pairs as stand-ins for token vectors
+  const mean = (arr) => {
+    // average in x/y hue space so it behaves like a vector mean
+    let x = 0, y = 0, l = 0;
+    for (const v of arr) { x += Math.cos(v.h * Math.PI / 180); y += Math.sin(v.h * Math.PI / 180); l += v.l; }
+    const h = Math.atan2(y / arr.length, x / arr.length) * 180 / Math.PI;
+    return { h: (h + 360) % 360, l: l / arr.length };
+  };
+  const clsWeights = [0.02, 0.05, 0.02, 0.05, 0.5, 0.05, 0.02, 0.05, 0.24]; // position-dependent attention (center-heavy)
+  const cls = (arr) => {
+    let x = 0, y = 0, l = 0;
+    arr.forEach((v, i) => { const w = clsWeights[i]; x += w * Math.cos(v.h * Math.PI / 180); y += w * Math.sin(v.h * Math.PI / 180); l += w * v.l; });
+    const h = Math.atan2(y, x) * 180 / Math.PI;
+    return { h: (h + 360) % 360, l };
+  };
+  function show(fn, name) {
+    const a = fn(vals), b = fn(order.map((i) => vals[i]));
+    const same = Math.abs(a.h - b.h) < 0.5 && Math.abs(a.l - b.l) < 0.5;
+    $('w4-out').innerHTML = `${name}: A → <i style="background:${colorOf(a)}"></i> B → <i style="background:${colorOf(b)}"></i> <b>${same ? 'identical — the shuffle is invisible' : 'different — arrangement leaked into the summary'}</b>`;
+  }
+  $('w4-mean').addEventListener('click', () => show(mean, 'mean-pool'));
+  $('w4-cls').addEventListener('click', () => show(cls, 'CLS-style'));
+  $('w4-reshuffle').addEventListener('click', () => { order = shuf(Math.floor(Math.random() * 1e6)); render(); $('w4-out').textContent = 'Press a pooling button.'; });
+  render();
+})();
+
+// ---------- §5 objectives simulation ----------
+(() => {
+  const [ctx, W, H] = setupCanvas($('w5'));
+  let mode = 'contrastive', t = 0, raf = null;
+  const rand = mulberry32(11);
+  const pairs = Array.from({ length: 7 }, (_, i) => ({
+    img: { x: 60 + rand() * (W - 120), y: 40 + rand() * (H - 80) },
+    txt: { x: 60 + rand() * (W - 120), y: 40 + rand() * (H - 80) },
+    hue: (i * 47) % 360,
+  }));
+  const views = Array.from({ length: 5 }, (_, i) => ({
+    cx: 80 + i * (W - 160) / 4, cy: H / 2 + (i % 2 ? -40 : 40),
+    pts: Array.from({ length: 4 }, () => ({ dx: (rand() - 0.5) * 150, dy: (rand() - 0.5) * 110 })),
+    hue: (i * 67) % 360,
+  }));
+  function step() {
+    t = Math.min(1, t + 0.006);
+    ctx.clearRect(0, 0, W, H);
+    ctx.font = '11px sans-serif';
+    if (mode === 'contrastive') {
+      for (const p of pairs) {
+        const mx = (p.img.x + p.txt.x) / 2, my = (p.img.y + p.txt.y) / 2;
+        const ix = p.img.x + (mx - p.img.x) * t, iy = p.img.y + (my - p.img.y) * t;
+        const tx = p.txt.x + (mx - p.txt.x) * t, ty = p.txt.y + (my - p.txt.y) * t;
+        ctx.strokeStyle = `hsl(${p.hue} 60% 55% / .5)`;
+        ctx.beginPath(); ctx.moveTo(ix, iy); ctx.lineTo(tx, ty); ctx.stroke();
+        ctx.fillStyle = `hsl(${p.hue} 70% 50%)`;
+        ctx.beginPath(); ctx.arc(ix, iy, 7, 0, 7); ctx.fill();          // image: dot
+        ctx.strokeStyle = `hsl(${p.hue} 70% 50%)`; ctx.lineWidth = 2;
+        ctx.strokeRect(tx - 6, ty - 6, 12, 12);                          // caption: square
+      }
+      ctx.fillStyle = css('--muted');
+      ctx.fillText('dots = images, squares = their captions — matched pairs pulled together', 12, H - 10);
+    } else if (mode === 'ssl') {
+      for (const v of views) {
+        ctx.fillStyle = `hsl(${v.hue} 70% 50%)`;
+        for (const p of v.pts) {
+          const x = v.cx + p.dx * (1 - t), y = v.cy + p.dy * (1 - t);
+          ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fill();
+        }
+      }
+      ctx.fillStyle = css('--muted');
+      ctx.fillText('each color = augmented views (crops/flips) of one image, pulled to one point — no language involved', 12, H - 10);
+    } else {
+      // VLM: token grid feeding a decoder that emits text
+      const g = 6, cell = 20, gx = 40, gy = 40;
+      for (let y = 0; y < g; y++) for (let x = 0; x < g; x++) {
+        ctx.fillStyle = `hsl(${(x * 40 + y * 60) % 360} 55% ${45 + ((x + y) % 3) * 8}%)`;
+        ctx.fillRect(gx + x * cell, gy + y * cell, cell - 2, cell - 2);
+      }
+      ctx.fillStyle = css('--muted');
+      ctx.fillText('577 vision tokens (what AND where)', gx, gy - 10);
+      const dx = gx + g * cell + 60;
+      ctx.strokeStyle = css('--accent'); ctx.lineWidth = 2;
+      ctx.strokeRect(dx, gy + 20, 150, 70);
+      ctx.fillStyle = css('--color');
+      ctx.fillText('language decoder', dx + 30, gy + 45);
+      const k = Math.floor(t * 26);
+      ctx.fillStyle = css('--accent');
+      ctx.fillText('"' + 'a path through a forest'.slice(0, k) + (k < 24 ? '▌' : '"'), dx, gy + 130);
+      ctx.strokeStyle = css('--muted');
+      for (let i = 0; i < 5; i++) {
+        const sy = gy + 10 + i * 22;
+        ctx.beginPath(); ctx.moveTo(gx + g * cell + 6, sy); ctx.lineTo(dx - 8, gy + 55); ctx.stroke();
+      }
+      ctx.fillStyle = css('--muted');
+      ctx.fillText('the decoder must answer “what does it say?” and “where is it?” — so the tokens must keep layout', 12, H - 10);
+    }
+    if (t < 1) raf = requestAnimationFrame(step);
+  }
+  const desc = {
+    contrastive: 'Contrastive training pulls each image toward its caption and pushes it from every other caption. Whatever the caption doesn\'t mention — orientation, layout, viewpoint — earns no gradient, and the space learns to discard it.',
+    ssl: 'Self-supervised training never sees text: augmented views of the same image are pulled together. "Similar" ends up meaning structurally similar — and geometric structure survives in the tokens.',
+    vlm: 'A VLM\'s vision encoder is graded by its decoder. If layout didn\'t survive into the tokens, the decoder could never OCR a page or localize an object — so position is baked into the features themselves.',
+  };
+  document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('.tabs button').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    mode = b.dataset.mode; t = 0;
+    $('w5-desc').textContent = desc[mode];
+    cancelAnimationFrame(raf); step();
+  }));
+  step();
+})();
+
+// ---------- §6 floors ----------
+(() => {
+  const [ctx, W, H] = setupCanvas($('w6'));
+  const dims = [2, 8, 64, 512, 1024, 3072];
+  let floors = null;
+  function gaussVec(d, rand) {
+    const v = new Float64Array(d);
+    for (let i = 0; i < d; i++) {
+      let u = 0, w = 0;
+      while (!u) u = rand(); while (!w) w = rand();
+      v[i] = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * w);
+    }
+    return v;
+  }
+  function draw(D) {
+    ctx.clearRect(0, 0, W, H);
+    const rand = mulberry32(5);
+    const bins = new Array(40).fill(0);
+    for (let n = 0; n < 250; n++) {
+      const a = gaussVec(D, rand), b = gaussVec(D, rand);
+      let dot = 0, ma = 0, mb = 0;
+      for (let i = 0; i < D; i++) { dot += a[i] * b[i]; ma += a[i] * a[i]; mb += b[i] * b[i]; }
+      const c = dot / Math.sqrt(ma * mb);
+      bins[Math.max(0, Math.min(39, Math.floor((c + 1) / 2 * 40)))]++;
+    }
+    const max = Math.max(...bins);
+    ctx.fillStyle = css('--accent');
+    bins.forEach((v, i) => {
+      const bh = (v / max) * (H - 46);
+      ctx.fillRect(i * (W / 40) + 1, H - 26 - bh, W / 40 - 2, bh);
+    });
+    ctx.fillStyle = css('--muted'); ctx.font = '10px sans-serif';
+    ctx.fillText('-1', 4, H - 12); ctx.fillText('0', W / 2 - 3, H - 12); ctx.fillText('+1', W - 16, H - 12);
+    if (floors) {
+      for (const [key, f] of Object.entries(floors)) {
+        const x = (f + 1) / 2 * W;
+        ctx.strokeStyle = seriesColor(key); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x, 12); ctx.lineTo(x, H - 26); ctx.stroke();
+      }
+      ctx.fillStyle = css('--muted');
+      ctx.fillText('real model floors →', W * 0.56, 10);
+    }
+  }
+  const slider = $('w6-d');
+  slider.addEventListener('input', () => {
+    const D = dims[+slider.value];
+    $('w6-dval').textContent = D;
+    draw(D);
+  });
+  fetch('results-patch-shuffle.json').then((r) => r.json()).then((j) => {
+    floors = Object.fromEntries(Object.entries(j.results).map(([k, v]) => [k, v.floor]));
+    $('w6-floors').innerHTML = SERIES.map((s) =>
+      `<span style="display:inline-flex;align-items:center;gap:.3rem;margin-right:.8rem"><i style="width:10px;height:10px;border-radius:2px;background:${seriesColor(s.key)};display:inline-block"></i>${s.label} ${floors[s.key]?.toFixed(2) ?? '—'}</span>`).join('');
+    draw(dims[+slider.value]);
+  }).catch(() => { $('w6-floors').textContent = 'floors unavailable (serve the repo to load results JSONs)'; });
+  draw(512);
+})();
+
+// ---------- §7 same-image threshold ----------
+(() => {
+  const [ctx, W, H] = setupCanvas($('w8'));
+  let data = null, model = 'clip', group = 'rotations', tau = 0.8;
+  const X0 = 30, X1 = W - 14, Y1 = H - 30;
+  const xOf = (c) => X0 + (c - 0.0) / 1.0 * (X1 - X0);   // plot cosine 0..1
+  const cOf = (x) => Math.max(0, Math.min(1, (x - X0) / (X1 - X0)));
+  function hist(vals, bins = 48) {
+    const h = new Array(bins).fill(0);
+    for (const v of vals) h[Math.max(0, Math.min(bins - 1, Math.floor(v * bins)))]++;
+    return h;
+  }
+  function draw() {
+    if (!data) return;
+    const d = data.results[model];
+    const same = d.groups[group].sims;
+    ctx.clearRect(0, 0, W, H);
+    const bins = 48, bw = (X1 - X0) / bins;
+    const hi = hist(d.impostor, bins), hs = hist(same, bins);
+    const max = Math.max(...hi, ...hs, 1);
+    ctx.fillStyle = css('--muted');
+    hi.forEach((v, i) => { if (v) ctx.fillRect(X0 + i * bw, Y1 - (v / max) * (H - 60), bw - 1, (v / max) * (H - 60)); });
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = seriesColor(model);
+    hs.forEach((v, i) => { if (v) ctx.fillRect(X0 + i * bw + 1, Y1 - (v / max) * (H - 60), bw - 2, (v / max) * (H - 60)); });
+    ctx.globalAlpha = 1;
+    // axis
+    ctx.fillStyle = css('--muted'); ctx.font = '10px sans-serif';
+    for (const t of [0, 0.25, 0.5, 0.75, 1]) ctx.fillText(t.toFixed(2), xOf(t) - 8, H - 14);
+    // ceiling marker
+    ctx.strokeStyle = css('--bad'); ctx.setLineDash([3, 3]); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(xOf(d.ceiling), 16); ctx.lineTo(xOf(d.ceiling), Y1); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillText('impostor ceiling', xOf(d.ceiling) - 36, 12);
+    // threshold
+    const tx = xOf(tau);
+    ctx.strokeStyle = css('--accent'); ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(tx, 4); ctx.lineTo(tx, Y1); ctx.stroke();
+    const fp = d.impostor.filter((v) => v > tau).length;
+    const rec = same.filter((v) => v > tau).length;
+    $('w8-read').innerHTML = `threshold <b>${tau.toFixed(3)}</b> → false "same" claims: <b style="color:${fp ? 'var(--bad)' : 'var(--good)'}">${fp}/${d.impostor.length}</b> impostor pairs · caught: <b>${rec}/${same.length}</b> transformed pairs (${Math.round(rec / same.length * 100)}%)`;
+    $('w8-summary').textContent = `Impostor ceiling for ${SERIES.find((s) => s.key === model).label}: ${d.ceiling.toFixed(3)} — above it, zero false positives on this corpus (${d.impostor.length} pairs). Recall above the ceiling: ${Math.round(d.groups[group].recallAtCeiling * 100)}% of ${group}.`;
+  }
+  const canvas = $('w8');
+  let dragging = false;
+  canvas.addEventListener('pointerdown', (e) => { dragging = true; canvas.setPointerCapture(e.pointerId); move(e); });
+  canvas.addEventListener('pointermove', move);
+  canvas.addEventListener('pointerup', () => { dragging = false; });
+  function move(e) {
+    if (!dragging) return;
+    const r = canvas.getBoundingClientRect();
+    tau = cOf((e.clientX - r.left) * (W / r.width));
+    draw();
+  }
+  $('w8-model') && fetch('results-same-image.json').then((r) => r.json()).then((j) => {
+    data = j;
+    $('w8-model').innerHTML = SERIES.filter((s) => j.results[s.key]).map((s) => `<option value="${s.key}">${s.label}</option>`).join('');
+    $('w8-model').addEventListener('input', (e) => { model = e.target.value; tau = data.results[model].ceiling; draw(); });
+    $('w8-group').addEventListener('input', (e) => { group = e.target.value; draw(); });
+    tau = j.results.clip.ceiling;
+    draw();
+    // rules of thumb
+    const lines = SERIES.filter((s) => j.results[s.key]).map((s) => {
+      const d = j.results[s.key];
+      const rot = Math.round(d.groups.rotations.recallAtCeiling * 100);
+      const crop = Math.round(d.groups.crops.recallAtCeiling * 100);
+      return `${s.label}: claim "same image" above <b>${d.ceiling.toFixed(2)}</b> — that catches ${rot}% of rotations and ${crop}% of crops.`;
+    });
+    $('w8-takeaway').innerHTML = `<b>Rules of thumb from this corpus.</b> ${lines.join(' ')} <span style="color:var(--muted)">Two caveats: the ceiling comes from only ${j.results.clip.impostor.length} impostor pairs — a bigger corpus will push it up, so keep margin; and a threshold is model-specific — never reuse one across models (§6).</span>`;
+  }).catch(() => { $('w8-read').textContent = 'distributions unavailable (serve the repo to load results JSONs)'; });
+})();
+
+// ---------- §8 caption browser ----------
+(() => {
+  fetch('results-caption-stability.json').then((r) => r.json()).then((j) => {
+    const sel = $('w7-img');
+    sel.innerHTML = j.perImage.map((row, i) => `<option value="${i}">${row.file}</option>`).join('');
+    const thumb = (file, angle) => {
+      const c = document.createElement('canvas');
+      c.width = 64; c.height = 64;
+      const img = new Image();
+      img.onload = () => {
+        const x = c.getContext('2d');
+        x.translate(32, 32); x.rotate(angle * Math.PI / 180);
+        x.drawImage(img, -32, -32, 64, 64);
+      };
+      img.src = 'test-images/' + file;
+      return c;
+    };
+    function show(i) {
+      const row = j.perImage[i];
+      const rows = [['0°', row.base, null]];
+      for (const a of [90, 180, 270]) rows.push([a + '°', row.angles[a].caption, row.angles[a]]);
+      $('w7-rows').innerHTML = '';
+      for (const [ang, cap, meta] of rows) {
+        const div = document.createElement('div');
+        div.className = 'caption-row';
+        div.appendChild(thumb(row.file, parseInt(ang)));
+        const span = document.createElement('div');
+        span.innerHTML = `<span class="ang">${ang}${meta ? ` · embedding cos ${meta.embeddingCos.toFixed(2)} · word overlap ${(meta.jaccard * 100).toFixed(0)}%` : ' · reference'}</span><br>“${cap}”`;
+        div.appendChild(span);
+        $('w7-rows').appendChild(div);
+      }
+    }
+    sel.addEventListener('input', () => show(+sel.value));
+    show(j.perImage.findIndex((r) => r.file === 'webpage-wikipedia.png'));
+  }).catch(() => { $('w7-rows').textContent = 'captions unavailable (serve the repo to load results JSONs)'; });
+})();
+
+// ---------- §8 charts ----------
+const NS = 'http://www.w3.org/2000/svg';
+function barChart(el, rows, { max = 1, fmt = (v) => v.toFixed(2), refLine = null, refLabel = '' } = {}) {
+  // rows: [{ label, value, color, series }]
+  const rowH = 26, left = 118, right = 52, w = 720, h = rows.length * rowH + 24;
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.setAttribute('role', 'img');
+  const plotW = w - left - right;
+  rows.forEach((r, i) => {
+    const y = 8 + i * rowH;
+    const label = document.createElementNS(NS, 'text');
+    label.setAttribute('x', left - 8); label.setAttribute('y', y + 14);
+    label.setAttribute('text-anchor', 'end'); label.setAttribute('class', 'bar-label');
+    label.textContent = r.label;
+    svg.appendChild(label);
+    const bw = Math.max(0, Math.min(1, r.value / max)) * plotW;
+    const bar = document.createElementNS(NS, 'rect');
+    bar.setAttribute('x', left); bar.setAttribute('y', y + 3);
+    bar.setAttribute('width', bw); bar.setAttribute('height', 14);
+    bar.setAttribute('rx', 4); bar.setAttribute('fill', r.color);
+    const tip = document.createElementNS(NS, 'title');
+    tip.textContent = `${r.label}: ${fmt(r.value)}`;
+    bar.appendChild(tip);
+    svg.appendChild(bar);
+    const val = document.createElementNS(NS, 'text');
+    val.setAttribute('x', left + bw + 6); val.setAttribute('y', y + 14);
+    val.setAttribute('class', 'bar-value');
+    val.textContent = fmt(r.value);
+    svg.appendChild(val);
+  });
+  if (refLine != null) {
+    const x = left + refLine / max * plotW;
+    const line = document.createElementNS(NS, 'line');
+    line.setAttribute('x1', x); line.setAttribute('x2', x);
+    line.setAttribute('y1', 4); line.setAttribute('y2', h - 18);
+    line.setAttribute('stroke', css('--muted')); line.setAttribute('stroke-dasharray', '3 3');
+    svg.appendChild(line);
+    const t = document.createElementNS(NS, 'text');
+    t.setAttribute('x', x + 4); t.setAttribute('y', h - 6);
+    t.setAttribute('class', 'axis-note');
+    t.textContent = refLabel;
+    svg.appendChild(t);
+  }
+  el.appendChild(svg);
+  // data table (relief rule + a11y)
+  const det = document.createElement('details');
+  det.innerHTML = `<summary>view data</summary><table><tr><th>series</th><th>value</th></tr>${rows.map((r) => `<tr><td>${r.label}</td><td>${fmt(r.value)}</td></tr>`).join('')}</table>`;
+  el.appendChild(det);
+}
+
+function h3For(el, text) {
+  const t = document.createElement('div');
+  t.style.cssText = 'font-size:.78rem;color:var(--muted);margin:.5rem 0 .1rem';
+  t.textContent = text;
+  el.appendChild(t);
+}
+
+$('model-legend').innerHTML = SERIES.map((s) => `<span><i style="background:${seriesColor(s.key)}"></i>${s.label}</span>`).join('');
+
+Promise.allSettled([
+  fetch('results-patch-shuffle.json').then((r) => r.json()),
+  fetch('results-rotation-probe.json').then((r) => r.json()),
+  fetch('results-equivariance.json').then((r) => r.json()),
+  fetch('results-mirrored-text.json').then((r) => r.json()),
+  fetch('results-text-alignment.json').then((r) => r.json()),
+  fetch('results-gemini-alignment.json').then((r) => r.json()),
+]).then(([shuffle, probe, equi, mirror, clipAlign, gemAlign]) => {
+  const order = SERIES.map((s) => s.key);
+  if (shuffle.status === 'fulfilled') {
+    const res = shuffle.value.results;
+    h3For($('c-shuffle'), 'floor-normalized similarity retained after an 8×8 patch shuffle (higher = more layout-blind)');
+    barChart($('c-shuffle'), order.filter((k) => res[k]).map((k) => ({
+      label: SERIES.find((s) => s.key === k).label,
+      value: res[k].conditions['shuffle 8×8'].normalized,
+      color: seriesColor(k),
+    })));
+  }
+  if (probe.status === 'fulfilled') {
+    const res = probe.value.results;
+    h3For($('c-probe'), 'probe accuracy predicting rotation angle from the embedding (chance = 25%)');
+    barChart($('c-probe'), order.filter((k) => res[k]).map((k) => ({
+      label: SERIES.find((s) => s.key === k).label,
+      value: res[k].accuracy,
+      color: seriesColor(k),
+    })), { fmt: (v) => Math.round(v * 100) + '%', refLine: 0.25, refLabel: 'chance' });
+  }
+  if (equi.status === 'fulfilled') {
+    const res = equi.value.results;
+    h3For($('c-equi'), 'similarity recovered by rotating token positions back (mean of 90/180/270°; negative = compensation hurts)');
+    const rows = Object.keys(res).map((k) => {
+      const angles = Object.values(res[k]);
+      const rec = angles.reduce((a, x) => a + x.recovery, 0) / angles.length;
+      return { label: SERIES.find((s) => s.key === k).label, value: rec, color: seriesColor(k) };
+    });
+    // shifted scale for the negative bar: draw as value+0.5 over max 1, relabel via fmt
+    barChart($('c-equi'), rows.map((r) => ({ ...r, value: r.value + 0.5 })), {
+      max: 1, fmt: (v) => (v - 0.5 >= 0 ? '+' : '') + (v - 0.5).toFixed(2), refLine: 0.5, refLabel: '0 (no recovery)',
+    });
+  }
+  if (mirror.status === 'fulfilled') {
+    const res = mirror.value.results;
+    h3For($('c-mirror'), 'flip-H penalty gap: photos-normalized minus text-normalized (higher = punishes mirrored text more)');
+    barChart($('c-mirror'), order.filter((k) => res[k]).map((k) => ({
+      label: SERIES.find((s) => s.key === k).label,
+      value: Math.max(0, res[k].photoMinusTextualNormalized),
+      color: seriesColor(k),
+    })));
+  }
+  if (clipAlign.status === 'fulfilled' && gemAlign.status === 'fulfilled') {
+    const c = clipAlign.value.results, g = gemAlign.value.results;
+    h3For($('c-align'), 'own-caption top-1 retrieval (of 15) after each transform — CLIP vs Gemini Embedding 2');
+    const conds = ['identity', 'shuffle 4×4', 'rotate 90°', 'rotate 45°', 'flip H', 'blur'];
+    const rows = [];
+    for (const cond of conds) {
+      rows.push({ label: `${cond} — CLIP`, value: c[cond].top1Rate, color: seriesColor('clip') });
+      rows.push({ label: `${cond} — Gemini`, value: g[cond].top1Rate, color: seriesColor('gemini') });
+    }
+    barChart($('c-align'), rows, { fmt: (v) => Math.round(v * 15) + '/15' });
+  }
+}).catch((e) => console.warn('[explainer] charts:', e));
+</script>
+</body>
+</html>

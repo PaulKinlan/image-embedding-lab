@@ -5,9 +5,16 @@ image, transform it (rotate, crop, scale, flip, compress…), and watch how much
 moves. Everything runs in your browser via Transformers.js (and there's a Node CLI for batch
 runs) — no server, no API key.
 
-Live: https://paulkinlan.github.io/image-embedding-lab/ · [Vector visualizer](vector-viz.html) ·
-[VLM playground](vlm.html) · [Batch report](report.html) · [Tiling report](tiling-report.html) ·
-[Layout report](layout-report.html) · [Findings](FINDINGS.md)
+Live: https://paulkinlan.github.io/image-embedding-lab/ · [How it works (explainer)](explainer.html) ·
+[Vector visualizer](vector-viz.html) · [VLM playground](vlm.html) · [Batch report](report.html) ·
+[Tiling report](tiling-report.html) · [Layout report](layout-report.html) · [Findings](FINDINGS.md)
+
+**New to embeddings? Start with the [interactive explainer](explainer.html)** — it builds the
+whole mental model from scratch (vectors and cosine, patches and tokens, position embeddings,
+pooling, training objectives, floors), each concept as a widget you can drag or scramble, then
+puts this repo's experimental results in context — including "what cosine threshold lets you
+claim two images are the same?", answered per model with an interactive threshold explorer
+backed by `results-same-image.json` (`scripts/experiment-same-image-threshold.mjs`).
 
 The **VLM playground** (`vlm.html`) runs Florence-2 in the browser — caption an image, read its
 text (OCR), or detect objects. It's the counterpart to the embedding lab: where the lab reduces
