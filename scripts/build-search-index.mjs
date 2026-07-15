@@ -15,6 +15,10 @@ const MODELS = {
   clip: { id: "Xenova/clip-vit-base-patch32", size: 224, dim: 512 },
   siglip: { id: "Xenova/siglip-base-patch16-224", size: 224, dim: 768 },
   dinov2: { id: "Xenova/dinov2-small", size: 224, dim: 384 },
+  // Florence-2's DaViT (VLM encoder): vision_encoder fp32 to match the browser's WASM dtype
+  // config (vlm.html uses fp32 vision on wasm); the page's calibration check verifies the
+  // match end-to-end on the user's machine.
+  florence: { id: "onnx-community/Florence-2-base-ft", size: 768, dim: 768, florence: true },
 };
 
 const DIR = "search-images";
@@ -48,10 +52,27 @@ for (const [m, cfg] of Object.entries(MODELS)) {
   )[0];
   if (!missing) { console.log(`${m}: complete`); continue; }
   console.log(`${m}: embedding ${missing.values.length} images`);
-  // dtype q8: the browser's WASM backend loads the quantized ONNX by default, and Node's
-  // default is fp32 — same pixels through different weights costs ~0.14 cosine. The index must
-  // use the SAME precision the querying page will.
-  const extractor = await T.pipeline("image-feature-extraction", cfg.id, { dtype: "q8" });
+  // dtype q8 for the pipeline models: the browser's WASM backend loads the quantized ONNX by
+  // default, and Node's default is fp32 — same pixels through different weights costs ~0.14
+  // cosine. The index must use the SAME precision the querying page will.
+  let embedRaw;
+  if (cfg.florence) {
+    const fl = await T.Florence2ForConditionalGeneration.from_pretrained(cfg.id, {
+      dtype: { embed_tokens: "fp32", vision_encoder: "fp32", encoder_model: "q8", decoder_model_merged: "q8" },
+    });
+    const processor = await T.AutoProcessor.from_pretrained(cfg.id);
+    embedRaw = async (raw) => {
+      const vin = await processor(raw);
+      const feats = await fl.encode_image({ pixel_values: vin.pixel_values });
+      return poolEmbedding(feats.data, feats.dims);
+    };
+  } else {
+    const extractor = await T.pipeline("image-feature-extraction", cfg.id, { dtype: "q8" });
+    embedRaw = async (raw) => {
+      const out = await extractor(raw);
+      return poolEmbedding(out.data, out.dims);
+    };
+  }
   let n = 0;
   for (const [id, file] of missing.values) {
     // Draw 1:1 at native size (no runtime resampling), then downscale with the SHARED pure-JS
@@ -61,8 +82,7 @@ for (const [m, cfg] of Object.entries(MODELS)) {
     c.getContext("2d").drawImage(img, 0, 0);
     const raw = c.getContext("2d").getImageData(0, 0, img.width, img.height);
     const sq = fitToSquare(raw, cfg.size);
-    const out = await extractor(new T.RawImage(new Uint8ClampedArray(sq.data), sq.width, sq.height, 4));
-    const vec = poolEmbedding(out.data, out.dims);           // unit-normalized Float64
+    const vec = await embedRaw(new T.RawImage(new Uint8ClampedArray(sq.data), sq.width, sq.height, 4));
     db.run(`INSERT INTO emb_${m} (image_id, v) VALUES (?, ?)`, [id, new Uint8Array(Float32Array.from(vec).buffer)]);
     if (++n % 50 === 0) {
       console.log(`  ${m} ${n}/${missing.values.length}`);
