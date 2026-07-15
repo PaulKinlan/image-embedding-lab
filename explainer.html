@@ -216,6 +216,17 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
   <div class="readout" id="w8-read">loading distributions…</div>
   <div id="w8-summary" style="font-size:.82rem;color:var(--muted);margin-top:.5rem"></div>
 </div>
+<p>The dragging you just did has a formal name: you were choosing an <b>operating point on a ROC curve</b>. Sweep the threshold from 1 down to 0 and plot, at every value, the false-positive rate (fraction of impostor pairs you'd wrongly call "same") against the true-positive rate (fraction of transformed pairs you'd catch). The curve summarizes every possible threshold at once, and the <b>area under it (AUC)</b> is a single threshold-free score for how separable the two distributions are: 1.0 means a perfect split; 0.5 means the score is useless. Where you should sit on the curve depends on which error costs you more; deduplicating a photo library wants a low false-positive rate (don't merge different photos), while copyright matching may accept more false positives to miss fewer copies.</p>
+<div class="widget">
+  <div class="hint">Same data as above, as ROC curves; the dot is your current threshold on the selected model</div>
+  <div class="wrow">
+    <div><canvas id="w8roc" width="360" height="330" aria-label="ROC curves per model for the selected transform group"></canvas></div>
+    <div>
+      <div id="w8roc-auc" style="font-size:.84rem;font-variant-numeric:tabular-nums">loading…</div>
+      <p style="font-size:.82rem;color:var(--muted)" id="w8roc-note">AUC for the selected transform group, all models. The dashed diagonal is chance. Drag the threshold in the widget above and watch the dot slide along the curve: right = more catches but more false alarms.</p>
+    </div>
+  </div>
+</div>
 <div class="takeaway" id="w8-takeaway"><b>Rules of thumb from this corpus</b> (loading…)</div>
 </section>
 
@@ -759,6 +770,67 @@ function initShuffle() {
     $('w8-read').innerHTML = `threshold <b>${tau.toFixed(3)}</b> → false "same" claims: <b style="color:${fp ? 'var(--bad)' : 'var(--good)'}">${fp}/${d.impostor.length}</b> impostor pairs · caught: <b>${rec}/${same.length}</b> transformed pairs (${Math.round(rec / same.length * 100)}%)`;
     $('w8-summary').textContent = `Impostor ceiling for ${SERIES.find((s) => s.key === model).label}: ${d.ceiling.toFixed(3)}; above it, zero false positives on this corpus (${d.impostor.length} pairs). Recall above the ceiling: ${Math.round(d.groups[group].recallAtCeiling * 100)}% of ${group}.`;
   }
+  // --- ROC panel: same distributions, every threshold at once ---
+  const [rctx, RW, RH] = setupCanvas($('w8roc'));
+  const RM = { l: 40, r: 10, t: 12, b: 34 };
+  function rocPoints(pos, neg) {
+    // sweep thresholds over all observed scores, high → low
+    const scores = [...new Set([...pos, ...neg])].sort((a, b) => b - a);
+    const pts = [{ fpr: 0, tpr: 0 }];
+    for (const t of scores) {
+      pts.push({ fpr: neg.filter((v) => v >= t).length / neg.length, tpr: pos.filter((v) => v >= t).length / pos.length, t });
+    }
+    pts.push({ fpr: 1, tpr: 1 });
+    return pts;
+  }
+  function auc(pos, neg) {
+    // Mann–Whitney: P(pos > neg) + 0.5 P(tie)
+    let s = 0;
+    for (const p of pos) for (const n of neg) s += p > n ? 1 : p === n ? 0.5 : 0;
+    return s / (pos.length * neg.length);
+  }
+  function drawRoc() {
+    if (!data) return;
+    rctx.clearRect(0, 0, RW, RH);
+    const px = (f) => RM.l + f * (RW - RM.l - RM.r);
+    const py = (t) => RH - RM.b - t * (RH - RM.t - RM.b);
+    rctx.strokeStyle = css('--border'); rctx.lineWidth = 1;
+    rctx.strokeRect(RM.l, RM.t, RW - RM.l - RM.r, RH - RM.t - RM.b);
+    rctx.setLineDash([3, 3]);
+    rctx.beginPath(); rctx.moveTo(px(0), py(0)); rctx.lineTo(px(1), py(1)); rctx.stroke();
+    rctx.setLineDash([]);
+    rctx.fillStyle = css('--muted'); rctx.font = '10px sans-serif';
+    rctx.fillText('false-positive rate →', RW / 2 - 45, RH - 8);
+    rctx.save(); rctx.translate(12, RH / 2 + 40); rctx.rotate(-Math.PI / 2);
+    rctx.fillText('true-positive rate →', 0, 0); rctx.restore();
+    for (const l of [0, 0.5, 1]) { rctx.fillText(l, px(l) - 3, RH - RM.b + 12); rctx.fillText(l, RM.l - 22, py(l) + 3); }
+    const aucs = [];
+    for (const s of SERIES) {
+      const d = data.results[s.key];
+      if (!d) continue;
+      const pos = d.groups[group].sims, neg = d.impostor;
+      const pts = rocPoints(pos, neg);
+      rctx.strokeStyle = seriesColor(s.key); rctx.lineWidth = s.key === model ? 2.6 : 1.4;
+      rctx.globalAlpha = s.key === model ? 1 : 0.55;
+      rctx.beginPath();
+      pts.forEach((p, i) => i ? rctx.lineTo(px(p.fpr), py(p.tpr)) : rctx.moveTo(px(p.fpr), py(p.tpr)));
+      rctx.stroke();
+      rctx.globalAlpha = 1;
+      aucs.push({ key: s.key, label: s.label, auc: auc(pos, neg) });
+    }
+    // operating point for the current model + tau
+    const d = data.results[model];
+    const pos = d.groups[group].sims, neg = d.impostor;
+    const fpr = neg.filter((v) => v > tau).length / neg.length;
+    const tpr = pos.filter((v) => v > tau).length / pos.length;
+    rctx.fillStyle = seriesColor(model);
+    rctx.strokeStyle = css('--background'); rctx.lineWidth = 2;
+    rctx.beginPath(); rctx.arc(px(fpr), py(tpr), 6, 0, 7); rctx.fill(); rctx.stroke();
+    $('w8roc-auc').innerHTML = '<b>AUC · ' + group + '</b><br>' + aucs
+      .sort((a, b) => b.auc - a.auc)
+      .map((a) => `<span style="display:inline-flex;align-items:center;gap:.3rem;margin:.1rem .7rem .1rem 0"><i style="width:10px;height:10px;border-radius:2px;background:${seriesColor(a.key)};display:inline-block"></i>${a.label} ${a.auc.toFixed(3)}</span>`)
+      .join('<br>') + `<br><span style="color:var(--muted)">operating point: FPR ${(fpr * 100).toFixed(1)}% · TPR ${(tpr * 100).toFixed(0)}%</span>`;
+  }
   const canvas = $('w8');
   let dragging = false;
   canvas.addEventListener('pointerdown', (e) => { dragging = true; canvas.setPointerCapture(e.pointerId); move(e); });
@@ -769,14 +841,16 @@ function initShuffle() {
     const r = canvas.getBoundingClientRect();
     tau = cOf((e.clientX - r.left) * (W / r.width));
     draw();
+    drawRoc();
   }
   $('w8-model') && fetch('results-same-image.json').then((r) => r.json()).then((j) => {
     data = j;
     $('w8-model').innerHTML = SERIES.filter((s) => j.results[s.key]).map((s) => `<option value="${s.key}">${s.label}</option>`).join('');
-    $('w8-model').addEventListener('input', (e) => { model = e.target.value; tau = data.results[model].ceiling; draw(); });
-    $('w8-group').addEventListener('input', (e) => { group = e.target.value; draw(); });
+    $('w8-model').addEventListener('input', (e) => { model = e.target.value; tau = data.results[model].ceiling; draw(); drawRoc(); });
+    $('w8-group').addEventListener('input', (e) => { group = e.target.value; draw(); drawRoc(); });
     tau = j.results.clip.ceiling;
     draw();
+    drawRoc();
     // rules of thumb
     const lines = SERIES.filter((s) => j.results[s.key]).map((s) => {
       const d = j.results[s.key];
