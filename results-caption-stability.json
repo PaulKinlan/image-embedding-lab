@@ -1,0 +1,341 @@
+{
+  "angles": [
+    90,
+    180,
+    270
+  ],
+  "summary": {
+    "90": {
+      "meanJaccard": 0.3240091390091389,
+      "exactRate": 0,
+      "meanEmbeddingCos": 0.8034392518419324
+    },
+    "180": {
+      "meanJaccard": 0.24020907455117985,
+      "exactRate": 0,
+      "meanEmbeddingCos": 0.8615974316889167
+    },
+    "270": {
+      "meanJaccard": 0.23844968756733464,
+      "exactRate": 0,
+      "meanEmbeddingCos": 0.8055564166804505
+    }
+  },
+  "perImage": [
+    {
+      "file": "photo-cafe.jpg",
+      "base": "A phone sitting on a table next to two cups.",
+      "angles": {
+        "90": {
+          "caption": "A room with a wooden floor and a mirror.",
+          "jaccard": 0.06666666666666667,
+          "embeddingCos": 0.7549943680510911
+        },
+        "180": {
+          "caption": "A ceiling with a wooden frame and a light fixture.",
+          "jaccard": 0.0625,
+          "embeddingCos": 0.8355936376372026
+        },
+        "270": {
+          "caption": "A wall mounted mirror in a room with a floor.",
+          "jaccard": 0.0625,
+          "embeddingCos": 0.7554269592984457
+        }
+      }
+    },
+    {
+      "file": "photo-phone-photographer.jpg",
+      "base": "A woman holding a computer screen in her hands.",
+      "angles": {
+        "90": {
+          "caption": "A person holding a glass of water in their mouth.",
+          "jaccard": 0.21428571428571427,
+          "embeddingCos": 0.8852587567732112
+        },
+        "180": {
+          "caption": "A hand is reaching for a screen that is lit up.",
+          "jaccard": 0.13333333333333333,
+          "embeddingCos": 0.9251854917324578
+        },
+        "270": {
+          "caption": "A hand holding a cell phone with a blurry background.",
+          "jaccard": 0.14285714285714285,
+          "embeddingCos": 0.8864872280430491
+        }
+      }
+    },
+    {
+      "file": "photo-road-tunnel.jpg",
+      "base": "A road with a bridge over it surrounded by trees.",
+      "angles": {
+        "90": {
+          "caption": "A picture of a road surrounded by trees.",
+          "jaccard": 0.45454545454545453,
+          "embeddingCos": 0.8647957907889601
+        },
+        "180": {
+          "caption": "A green and black image of a pair of shoes.",
+          "jaccard": 0.0625,
+          "embeddingCos": 0.9318142025633748
+        },
+        "270": {
+          "caption": "A train traveling through a lush green forest.",
+          "jaccard": 0.06666666666666667,
+          "embeddingCos": 0.7650542342964821
+        }
+      }
+    },
+    {
+      "file": "photo-floating-market.jpg",
+      "base": "A group of people sitting around a boat filled with food.",
+      "angles": {
+        "90": {
+          "caption": "A group of people standing around a room.",
+          "jaccard": 0.4166666666666667,
+          "embeddingCos": 0.7435052742465434
+        },
+        "180": {
+          "caption": "A group of people standing on top of a roof.",
+          "jaccard": 0.2857142857142857,
+          "embeddingCos": 0.6795821044750889
+        },
+        "270": {
+          "caption": "A group of people standing next to each other.",
+          "jaccard": 0.26666666666666666,
+          "embeddingCos": 0.7403342145693617
+        }
+      }
+    },
+    {
+      "file": "photo-forest-path.jpg",
+      "base": "A road surrounded by trees on a sunny day.",
+      "angles": {
+        "90": {
+          "caption": "A picture of a tree lined wall with a cement road.",
+          "jaccard": 0.13333333333333333,
+          "embeddingCos": 0.8151558704792335
+        },
+        "180": {
+          "caption": "A green and white photo of a forest.",
+          "jaccard": 0.07142857142857142,
+          "embeddingCos": 0.9003221775082992
+        },
+        "270": {
+          "caption": "A view of a forest with lots of trees.",
+          "jaccard": 0.15384615384615385,
+          "embeddingCos": 0.878981175526335
+        }
+      }
+    },
+    {
+      "file": "photo-sea-cliff.jpg",
+      "base": "A large rock formation on a beach with people walking by.",
+      "angles": {
+        "90": {
+          "caption": "A picture of a mountain with snow on it.",
+          "jaccard": 0.2,
+          "embeddingCos": 0.8854913319917709
+        },
+        "180": {
+          "caption": "A picture of a broken wall with a blue sky in the background.",
+          "jaccard": 0.10526315789473684,
+          "embeddingCos": 0.8755052751839584
+        },
+        "270": {
+          "caption": "A painting of a mountain with a blue sky.",
+          "jaccard": 0.13333333333333333,
+          "embeddingCos": 0.9079622721035454
+        }
+      }
+    },
+    {
+      "file": "photo-open-book.jpg",
+      "base": "A book is open and the pages are white.",
+      "angles": {
+        "90": {
+          "caption": "A close up of a wooden door with a white background.",
+          "jaccard": 0.125,
+          "embeddingCos": 0.7044544807478806
+        },
+        "180": {
+          "caption": "A close up of a book with a wooden cover.",
+          "jaccard": 0.13333333333333333,
+          "embeddingCos": 0.9522439106855504
+        },
+        "270": {
+          "caption": "A close up of a wooden table with white and brown woodgrain.",
+          "jaccard": 0.17647058823529413,
+          "embeddingCos": 0.6780231446910823
+        }
+      }
+    },
+    {
+      "file": "photo-mountain-lake.jpg",
+      "base": "A wooden dock in front of a lake surrounded by trees.",
+      "angles": {
+        "90": {
+          "caption": "A picture of a tree and a wooden fence.",
+          "jaccard": 0.21428571428571427,
+          "embeddingCos": 0.7283845797022149
+        },
+        "180": {
+          "caption": "A large mirror reflecting a forest and a sky.",
+          "jaccard": 0.0625,
+          "embeddingCos": 0.8266798547423118
+        },
+        "270": {
+          "caption": "A computer generated image of a tree and a wooden fence.",
+          "jaccard": 0.1875,
+          "embeddingCos": 0.687422469653468
+        }
+      }
+    },
+    {
+      "file": "photo-skateboard.jpg",
+      "base": "A metal object with a pattern on it.",
+      "angles": {
+        "90": {
+          "caption": "A set of metal objects on a white surface.",
+          "jaccard": 0.25,
+          "embeddingCos": 0.9698806179827533
+        },
+        "180": {
+          "caption": "A picture of a sculpture made of metal.",
+          "jaccard": 0.18181818181818182,
+          "embeddingCos": 0.9782631997894502
+        },
+        "270": {
+          "caption": "A person standing in front of a white wall.",
+          "jaccard": 0.07142857142857142,
+          "embeddingCos": 0.9738227496842524
+        }
+      }
+    },
+    {
+      "file": "photo-ocean-waves.jpg",
+      "base": "A large rock formation in the water with a blue sky in the background.",
+      "angles": {
+        "90": {
+          "caption": "A rock formation in the ocean with a blue sky.",
+          "jaccard": 0.6666666666666666,
+          "embeddingCos": 0.8780555793676166
+        },
+        "180": {
+          "caption": "A large rock is shown in the picture.",
+          "jaccard": 0.35714285714285715,
+          "embeddingCos": 0.8155449999594706
+        },
+        "270": {
+          "caption": "a large rock formation in the ocean",
+          "jaccard": 0.5,
+          "embeddingCos": 0.8817857118192243
+        }
+      }
+    },
+    {
+      "file": "text-readme.png",
+      "base": "A computer screen with a black background and white text.",
+      "angles": {
+        "90": {
+          "caption": "A black and white image of a computer screen.",
+          "jaccard": 0.5454545454545454,
+          "embeddingCos": 0.659602843612242
+        },
+        "180": {
+          "caption": "A computer screen with a lot of words on it.",
+          "jaccard": 0.2857142857142857,
+          "embeddingCos": 0.7757975940658275
+        },
+        "270": {
+          "caption": "A black and white image of a computer program.",
+          "jaccard": 0.4166666666666667,
+          "embeddingCos": 0.6866649878742073
+        }
+      }
+    },
+    {
+      "file": "webpage-example.png",
+      "base": "A white screen with the words example domain on it.",
+      "angles": {
+        "90": {
+          "caption": "A page with the word example domain on it.",
+          "jaccard": 0.5833333333333334,
+          "embeddingCos": 0.8926665620719919
+        },
+        "180": {
+          "caption": "A white screen with the words \"U.S.A.D.U.C.U\" on it.",
+          "jaccard": 0.7272727272727273,
+          "embeddingCos": 0.9408816840926094
+        },
+        "270": {
+          "caption": "A document with the word example domain on it.",
+          "jaccard": 0.5833333333333334,
+          "embeddingCos": 0.9080997843040323
+        }
+      }
+    },
+    {
+      "file": "webpage-hn.png",
+      "base": "A computer screen with a list of different levels.",
+      "angles": {
+        "90": {
+          "caption": "A computer screen with a list of words on it.",
+          "jaccard": 0.5454545454545454,
+          "embeddingCos": 0.7521013547999812
+        },
+        "180": {
+          "caption": "A computer screen with a bunch of words on it.",
+          "jaccard": 0.4166666666666667,
+          "embeddingCos": 0.8210834453047947
+        },
+        "270": {
+          "caption": "A page with a list of questions on it.",
+          "jaccard": 0.3333333333333333,
+          "embeddingCos": 0.7625625738248981
+        }
+      }
+    },
+    {
+      "file": "webpage-sotw.png",
+      "base": "A screen shot of a website's website page.",
+      "angles": {
+        "90": {
+          "caption": "A bar graph showing the percentage of people who have paid to work.",
+          "jaccard": 0.1111111111111111,
+          "embeddingCos": 0.7607910560181778
+        },
+        "180": {
+          "caption": "A screen shot of a screen with a bunch of numbers on it.",
+          "jaccard": 0.3333333333333333,
+          "embeddingCos": 0.8455155301119166
+        },
+        "270": {
+          "caption": "A bar graph showing the percentage of people who are married.",
+          "jaccard": 0.125,
+          "embeddingCos": 0.7832909849833876
+        }
+      }
+    },
+    {
+      "file": "webpage-wikipedia.png",
+      "base": "A computer screen with a page of information about cats.",
+      "angles": {
+        "90": {
+          "caption": "A screenshot of a computer screen with a cat on the bottom left.",
+          "jaccard": 0.3333333333333333,
+          "embeddingCos": 0.7564503109953145
+        },
+        "180": {
+          "caption": "A computer screen with a bunch of words on it.",
+          "jaccard": 0.38461538461538464,
+          "embeddingCos": 0.8199483674814353
+        },
+        "270": {
+          "caption": "A screenshot of a computer screen with a cat on the right.",
+          "jaccard": 0.35714285714285715,
+          "embeddingCos": 0.7874277595349858
+        }
+      }
+    }
+  ]
+}

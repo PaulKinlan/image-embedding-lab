@@ -7,7 +7,7 @@ runs) — no server, no API key.
 
 Live: https://paulkinlan.github.io/image-embedding-lab/ · [Vector visualizer](vector-viz.html) ·
 [VLM playground](vlm.html) · [Batch report](report.html) · [Tiling report](tiling-report.html) ·
-[Findings](FINDINGS.md)
+[Layout report](layout-report.html) · [Findings](FINDINGS.md)
 
 The **VLM playground** (`vlm.html`) runs Florence-2 in the browser — caption an image, read its
 text (OCR), or detect objects. It's the counterpart to the embedding lab: where the lab reduces
@@ -139,11 +139,20 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 - ✅ **Tiling + higher-resolution encoders** — now in: SigLIP-384 / CLIP-L-336 plus a 2×2 / 3×3
   AnyRes tiling mode. Next: measure the floor drop on documents systematically.
+- ✅ **Does the embedding encode what-is-where, or just what?** — the
+  [layout report](layout-report.html) runs seven experiments (patch shuffle, orientation probe,
+  token equivariance, layout swaps, caption stability, mirrored text, caption retrieval).
+  Short version: layout is in every embedding; how much the *pooled vector moves* measures the
+  aggregation (CLS vs mean-pool), not the encoder; DINOv2 is substantially equivariant while
+  Florence entangles position into its token features; and semantic robustness ≠ vector
+  robustness (CLIP's meaning survives shuffles that wreck its cosine, Florence's cosine
+  survives rotations that wreck its captions).
+- ✅ **Text↔image alignment** — experiment 7 of the layout report: own-caption retrieval
+  survives transforms far better than image↔image cosine implies (12/15 under a 4×4 shuffle).
 - **Isolate patch size properly** — compare within one family (CLIP-B/16 vs B/32) instead of
   across three models that differ on everything.
-- **Text↔image alignment** — for CLIP/SigLIP, test whether a transformed image still matches the
-  *original's caption*, which is a more meaningful "does it still mean the same thing" test than
-  image↔image cosine.
+- **CLS vs mean-pool within one model** — the layout report's biggest confound, and now its
+  most interesting follow-up: extract both from DINOv2/SigLIP and re-run the shuffle test.
 - **Heavier compression / other corruptions** — noise, resize artifacts, screenshots of
   screenshots.
 
