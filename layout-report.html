@@ -120,6 +120,9 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 <tr><td>crop 10%</td><td class="hi">14 / 15</td><td>0.047</td></tr>
 <tr><td>crop 20%</td><td class="hi">14 / 15</td><td>0.049</td></tr>
 <tr><td>crop 35%</td><td>11 / 15</td><td>0.028</td></tr>
+<tr><td>rot 90° + crop 20%</td><td>11 / 15</td><td>0.028</td></tr>
+<tr><td>rot 90° + crop 35%</td><td class="lo">6 / 15</td><td class="lo">0.003</td></tr>
+<tr><td>rot 45° + crop 20%</td><td>9 / 15</td><td>0.012</td></tr>
 <tr><td>blur</td><td>11 / 15</td><td>0.022</td></tr>
 <tr><td>rotate 90°</td><td>10 / 15</td><td>0.032</td></tr>
 </table>
@@ -133,12 +136,15 @@ pre{background:var(--bg-secondary);border-radius:.4rem;padding:.7rem 1rem;font-s
 <tr><td>rotate 45°</td><td class="hi">15 / 15</td><td>0.128</td></tr>
 <tr><td>crop 10%</td><td>13 / 15</td><td>0.123</td></tr>
 <tr><td>crop 20%</td><td>13 / 15</td><td>0.113</td></tr>
-<tr><td>crop 35%</td><td class="lo">13 / 15</td><td class="lo">0.048</td></tr>
+<tr><td>crop 35%</td><td>13 / 15</td><td>0.048</td></tr>
+<tr><td>rot 90° + crop 20%</td><td class="hi">14 / 15</td><td>0.082</td></tr>
+<tr><td>rot 90° + crop 35%</td><td class="lo">10 / 15</td><td class="lo">0.010</td></tr>
+<tr><td>rot 45° + crop 20%</td><td>13 / 15</td><td>0.084</td></tr>
 <tr><td>shuffle 4×4</td><td class="hi">15 / 15</td><td>0.112</td></tr>
 <tr><td>flip H</td><td>14 / 15</td><td>0.131</td></tr>
 <tr><td>blur</td><td>14 / 15</td><td>0.133</td></tr>
 </table>
-<div class="takeaway"><b>Transform-proof retrieval, with one revealing exception.</b> Gemini Embedding 2 keeps own-caption top-1 at 13–15/15 under every transform, with margins (~0.12) more than double CLIP's. Its weakest transform is the deep crop: at 35% the margin halves (0.048). That is the one transform in the set that <em>removes</em> content instead of rearranging it — the retrieval-tuned space shrugs at rearrangement and notices deletion, which is the thesis in one row. CLIP shows the mirror image: mild crops (10–20%) beat identity (14/15), since cropping can discard distracting background.</div>
+<div class="takeaway"><b>Transform-proof retrieval, with one revealing exception.</b> Gemini Embedding 2 keeps own-caption top-1 at 13–15/15 under every transform, with margins (~0.12) more than double CLIP's. Its weakest transform is the deep crop: at 35% the margin halves (0.048). That is the one transform in the set that <em>removes</em> content instead of rearranging it — the retrieval-tuned space shrugs at rearrangement and notices deletion, which is the thesis in one row. CLIP shows the mirror image: mild crops (10–20%) beat identity (14/15), since cropping can discard distracting background. Stack the transforms and even the strongest space finally bends: rotate 90° + crop 35% drops CLIP to 6/15 (margin 0.003, effectively chance) and Gemini to 10/15 — compound transforms multiply, they don't add.</div>
 
 <!-- impeccable-disable numbered-section-markers -- numeric table data values, not section labels -->
 <h2>Synthesis</h2>

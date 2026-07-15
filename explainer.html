@@ -213,6 +213,7 @@ select{font:inherit;padding:.3rem .5rem;border:1px solid var(--border);border-ra
     <select id="w8-group" aria-label="transform group">
       <option value="rotations">rotations (45–270°)</option>
       <option value="crops">crops (10–35%)</option>
+      <option value="rotate+crop">rotate + crop combined</option>
       <option value="flips">horizontal flip</option>
       <option value="shuffles">patch shuffles</option>
     </select>
@@ -894,7 +895,8 @@ function initShuffle() {
       const d = j.results[s.key];
       const rot = Math.round(d.groups.rotations.recallAtCeiling * 100);
       const crop = Math.round(d.groups.crops.recallAtCeiling * 100);
-      return `${s.label}: claim "same image" above <b>${d.ceiling.toFixed(2)}</b>, which catches ${rot}% of rotations and ${crop}% of crops.`;
+      const combo = d.groups['rotate+crop'] ? `, ${Math.round(d.groups['rotate+crop'].recallAtCeiling * 100)}% of rotate+crop combos` : '';
+      return `${s.label}: claim "same image" above <b>${d.ceiling.toFixed(2)}</b>, which catches ${rot}% of rotations, ${crop}% of crops${combo}.`;
     });
     $('w8-takeaway').innerHTML = `<b>Rules of thumb from this corpus.</b> ${lines.join(' ')} <span style="color:var(--muted)">Two caveats: the ceiling comes from only ${j.results.clip.impostor.length} impostor pairs (a bigger corpus will push it up, so keep margin), and a threshold is model-specific; never reuse one across models (§6).</span>`;
   }).catch(() => { $('w8-read').textContent = 'distributions unavailable (serve the repo to load results JSONs)'; });
@@ -1049,7 +1051,7 @@ Promise.allSettled([
   if (clipAlign.status === 'fulfilled' && gemAlign.status === 'fulfilled') {
     const c = clipAlign.value.results, g = gemAlign.value.results;
     h3For($('c-align'), 'own-caption top-1 retrieval (of 15) after each transform, CLIP vs Gemini Embedding 2');
-    const conds = ['identity', 'shuffle 4×4', 'rotate 90°', 'rotate 45°', 'crop 20%', 'crop 35%', 'flip H', 'blur'];
+    const conds = ['identity', 'shuffle 4×4', 'rotate 90°', 'rotate 45°', 'crop 20%', 'crop 35%', 'rot 90° + crop 20%', 'rot 90° + crop 35%', 'flip H', 'blur'];
     const rows = [];
     for (const cond of conds) {
       rows.push({ label: `${cond} · CLIP`, value: c[cond].top1Rate, color: seriesColor('clip') });

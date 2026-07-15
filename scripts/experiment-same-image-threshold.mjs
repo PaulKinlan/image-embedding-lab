@@ -11,6 +11,7 @@ const GROUPS = {
   rotations: [{ rotation: 90 }, { rotation: 180 }, { rotation: 270 }, { rotation: 45 }],
   crops: [{ crop: 0.10 }, { crop: 0.20 }, { crop: 0.35 }],
   flips: [{ flip: "horizontal" }],
+  "rotate+crop": [{ rotation: 90, crop: 0.10 }, { rotation: 90, crop: 0.20 }, { rotation: 90, crop: 0.35 }, { rotation: 45, crop: 0.20 }, { rotation: 180, crop: 0.20 }],
   shuffles: [{ shuffle: 4 }, { shuffle: 8 }],
 };
 
